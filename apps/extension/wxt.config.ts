@@ -18,5 +18,6 @@ export default defineConfig({
       },
     },
     permissions: ["nativeMessaging", "activeTab", "storage"],
+    host_permissions: ["*://*.fansly.com/*"],
   },
 });
