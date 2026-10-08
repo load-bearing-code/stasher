@@ -3,14 +3,16 @@
 //! unchanged by providing its own trait implementations.
 
 mod error;
+mod fansly;
 mod ffmpeg;
 mod nfs;
 mod stash;
 
 pub use error::CoreError;
+pub use fansly::FanslyClient;
 pub use ffmpeg::{FfmpegProcessor, NoopFfmpegProcessor};
 pub use nfs::{LocalFsWriter, NfsWriter};
-pub use stash::{test_connection, LoggingStashClient, StashClient};
+pub use stash::{test_connection, GraphqlStashClient, LoggingStashClient, StashClient};
 
 use std::sync::Arc;
 
