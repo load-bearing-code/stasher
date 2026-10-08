@@ -9,7 +9,7 @@ import type {
 import { Avatar, AvatarFallback, AvatarImage } from "@stasher/ui/components/avatar";
 import { Button } from "@stasher/ui/components/button";
 import { Card, CardContent } from "@stasher/ui/components/card";
-import { CheckIcon, RefreshCwIcon, SearchIcon } from "lucide-react";
+import { CheckIcon, ExternalLinkIcon, RefreshCwIcon, SearchIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ImportWizard } from "./ImportWizard";
 
@@ -80,7 +80,7 @@ function CandidateRow({
 
 async function fetchStatus(): Promise<{
   connection: ConnectionStatus;
-  stashHost: string | null;
+  stashUrl: string | null;
 }> {
   try {
     const request: HostRequest = { type: "getStatus" };
@@ -88,12 +88,12 @@ async function fetchStatus(): Promise<{
     if (response.type === "status") {
       return {
         connection: response.stashReachable ? "connected" : "disconnected",
-        stashHost: response.stashUrl ? new URL(response.stashUrl).host : null,
+        stashUrl: response.stashUrl,
       };
     }
-    return { connection: "disconnected", stashHost: null };
+    return { connection: "disconnected", stashUrl: null };
   } catch {
-    return { connection: "offline", stashHost: null };
+    return { connection: "offline", stashUrl: null };
   }
 }
 
@@ -141,7 +141,7 @@ async function fetchStage(refresh: boolean): Promise<Stage> {
 
 export function App() {
   const [connection, setConnection] = useState<ConnectionStatus>("checking");
-  const [stashHost, setStashHost] = useState<string | null>(null);
+  const [stashUrl, setStashUrl] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>({ kind: "loading" });
   const [wizardOpen, setWizardOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -151,7 +151,7 @@ export function App() {
   useEffect(() => {
     void fetchStatus().then((status) => {
       setConnection(status.connection);
-      setStashHost(status.stashHost);
+      setStashUrl(status.stashUrl);
     });
     void fetchStage(false).then(setStage);
   }, []);
@@ -162,7 +162,7 @@ export function App() {
     try {
       const [status, next] = await Promise.all([fetchStatus(), fetchStage(true)]);
       setConnection(status.connection);
-      setStashHost(status.stashHost);
+      setStashUrl(status.stashUrl);
       setResolved(null);
       setStage(next);
     } finally {
@@ -215,7 +215,7 @@ export function App() {
         </div>
         <div
           className="flex items-center gap-2 text-xs text-muted-foreground"
-          title={stashHost ?? undefined}
+          title={stashUrl ? new URL(stashUrl).host : undefined}
         >
           <span className={`size-2 rounded-full ${dotColor}`} />
           {statusLabel}
@@ -259,9 +259,17 @@ export function App() {
                 <p className="truncate text-base font-medium">
                   {stage.profile.displayName ?? stage.profile.username}
                 </p>
-                <p className="truncate font-mono text-xs text-muted-foreground">
-                  {stage.profile.site}.com/{stage.profile.username}
-                </p>
+                <a
+                  href={stage.profile.profileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex max-w-full items-center gap-1 font-mono text-xs text-muted-foreground hover:text-foreground hover:underline"
+                >
+                  <span className="truncate">
+                    {stage.profile.site}.com/{stage.profile.username}
+                  </span>
+                  <ExternalLinkIcon className="size-3 shrink-0" />
+                </a>
               </div>
               <Button
                 variant="outline"
@@ -314,6 +322,20 @@ export function App() {
                 </CardContent>
               )}
             </Card>
+
+            {stashUrl && (resolved?.performer ?? stage.exactMatch) && (
+              <Button
+                onClick={() => {
+                  const performer = resolved?.performer ?? stage.exactMatch;
+                  if (!performer) return;
+                  const base = stashUrl.replace(/\/+$/, "");
+                  void browser.tabs.create({ url: `${base}/performers/${performer.id}` });
+                }}
+              >
+                Open in Stash
+                <ExternalLinkIcon />
+              </Button>
+            )}
 
             {!resolved && !stage.exactMatch && (
               <>
