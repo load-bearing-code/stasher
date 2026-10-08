@@ -15,8 +15,8 @@
         "title": "Stasher",
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "width": 800,
-        "height": 600,
+        "width": 560,
+        "height": 820,
         "resizable": true,
         "fullscreen": false
       }
