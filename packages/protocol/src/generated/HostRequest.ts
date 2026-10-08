@@ -5,4 +5,4 @@ import type { StashJob } from "./StashJob";
 /**
  * Messages sent from the extension, through `stasher-host`, to the Tauri app.
  */
-export type HostRequest = { "type": "ping", nonce: string, } | { "type": "submitJob", job: StashJob, } | { "type": "getStatus" } | { "type": "lookupProfile", site: string, username: string, profileUrl: string, } | { "type": "searchPerformers", query: string, } | { "type": "linkPerformer", performerId: string, profileUrl: string, } | { "type": "importPerformer", profile: SiteProfile, };
+export type HostRequest = { "type": "ping", nonce: string, } | { "type": "submitJob", job: StashJob, } | { "type": "getStatus" } | { "type": "lookupProfile", site: string, username: string, profileUrl: string, } | { "type": "searchPerformers", query: string, } | { "type": "linkPerformer", performerId: string, profile: SiteProfile, } | { "type": "importPerformer", profile: SiteProfile, };

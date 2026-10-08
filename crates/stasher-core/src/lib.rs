@@ -121,8 +121,8 @@ impl AppCore {
             }
             HostRequest::LinkPerformer {
                 performer_id,
-                profile_url,
-            } => match self.stash.link_performer(&performer_id, &profile_url).await {
+                profile,
+            } => match self.stash.link_performer(&performer_id, &profile).await {
                 Ok(performer) => HostResponse::PerformerLinked { performer },
                 Err(err) => HostResponse::Error {
                     message: err.to_string(),

@@ -40,13 +40,28 @@ pub trait StashClient: Send + Sync {
     /// Creates a new performer from a detected profile.
     async fn create_performer(&self, profile: &SiteProfile) -> Result<Performer, CoreError>;
 
-    /// Attaches `profile_url` to an existing performer's URLs, preserving
-    /// whatever URLs it already has.
+    /// Attaches the profile's URL to an existing performer's URLs, preserving
+    /// whatever URLs it already has, and records the profile's remote id in
+    /// the performer's custom fields.
     async fn link_performer(
         &self,
         performer_id: &str,
-        profile_url: &str,
+        profile: &SiteProfile,
     ) -> Result<Performer, CoreError>;
+}
+
+/// Custom field holding the performer's Fansly account id.
+const FANSLY_USER_ID_FIELD: &str = "fansly_user_id";
+
+/// Custom fields to write for `profile`; empty when it has no Fansly id.
+fn custom_fields_for(profile: &SiteProfile) -> serde_json::Map<String, Value> {
+    let mut fields = serde_json::Map::new();
+    if profile.site == "fansly" {
+        if let Some(id) = &profile.remote_id {
+            fields.insert(FANSLY_USER_ID_FIELD.into(), json!(id));
+        }
+    }
+    fields
 }
 
 /// Builds a `GraphqlStashClient` from whatever `StashConfig` is current,
@@ -105,9 +120,9 @@ impl StashClient for ConfiguredStashClient {
     async fn link_performer(
         &self,
         performer_id: &str,
-        profile_url: &str,
+        profile: &SiteProfile,
     ) -> Result<Performer, CoreError> {
-        self.client()?.link_performer(performer_id, profile_url).await
+        self.client()?.link_performer(performer_id, profile).await
     }
 }
 
@@ -321,6 +336,43 @@ impl GraphqlStashClient {
             .map(Performer::from))
     }
 
+    async fn find_by_custom_fields(
+        &self,
+        fields: &serde_json::Map<String, Value>,
+    ) -> Result<Option<Performer>, CoreError> {
+        let Some((field, value)) = fields.iter().next() else {
+            return Ok(None);
+        };
+        let query = format!(
+            "query($performer_filter: PerformerFilterType, $filter: FindFilterType) {{ \
+                findPerformers(performer_filter: $performer_filter, filter: $filter) {{ \
+                    performers {{ {PERFORMER_FIELDS} }} \
+                }} \
+            }}"
+        );
+        let data: FindPerformersData = self
+            .request(
+                &query,
+                json!({
+                    "performer_filter": {
+                        "custom_fields": [{
+                            "field": field,
+                            "value": [value],
+                            "modifier": "EQUALS",
+                        }],
+                    },
+                    "filter": { "per_page": 1 },
+                }),
+            )
+            .await?;
+        Ok(data
+            .find_performers
+            .performers
+            .into_iter()
+            .next()
+            .map(Performer::from))
+    }
+
     async fn find_by_name_or_alias(&self, name: &str) -> Result<Option<Performer>, CoreError> {
         let query = format!(
             "query($performer_filter: PerformerFilterType, $filter: FindFilterType) {{ \
@@ -393,6 +445,12 @@ impl StashClient for GraphqlStashClient {
         &self,
         profile: &SiteProfile,
     ) -> Result<Option<Performer>, CoreError> {
+        if let Some(performer) = self
+            .find_by_custom_fields(&custom_fields_for(profile))
+            .await?
+        {
+            return Ok(Some(performer));
+        }
         if let Some(performer) = self.find_by_url(&profile.profile_url).await? {
             return Ok(Some(performer));
         }
@@ -440,6 +498,7 @@ impl StashClient for GraphqlStashClient {
                         "name": name,
                         "urls": [profile.profile_url],
                         "image": profile.photo_url,
+                        "custom_fields": custom_fields_for(profile),
                     }
                 }),
             )
@@ -452,12 +511,12 @@ impl StashClient for GraphqlStashClient {
     async fn link_performer(
         &self,
         performer_id: &str,
-        profile_url: &str,
+        profile: &SiteProfile,
     ) -> Result<Performer, CoreError> {
         let current = self.find_by_id(performer_id).await?;
         let mut urls = current.urls;
-        if !urls.iter().any(|url| url == profile_url) {
-            urls.push(profile_url.to_string());
+        if !urls.iter().any(|url| *url == profile.profile_url) {
+            urls.push(profile.profile_url.clone());
         }
 
         let query = format!(
@@ -468,7 +527,11 @@ impl StashClient for GraphqlStashClient {
         let data: PerformerUpdateData = self
             .request(
                 &query,
-                json!({ "input": { "id": performer_id, "urls": urls } }),
+                json!({ "input": {
+                    "id": performer_id,
+                    "urls": urls,
+                    "custom_fields": { "partial": custom_fields_for(profile) },
+                } }),
             )
             .await?;
         data.performer_update
@@ -518,16 +581,16 @@ impl StashClient for LoggingStashClient {
     async fn link_performer(
         &self,
         performer_id: &str,
-        profile_url: &str,
+        profile: &SiteProfile,
     ) -> Result<Performer, CoreError> {
-        tracing::info!(performer_id, profile_url, "stash: link_performer (stub)");
+        tracing::info!(performer_id, url = %profile.profile_url, "stash: link_performer (stub)");
         Err(CoreError::NotImplemented("link_performer"))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use wiremock::matchers::{method, path};
+    use wiremock::matchers::{body_partial_json, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use super::*;
@@ -577,6 +640,38 @@ mod tests {
         let found = client.find_exact_performer(&profile).await.unwrap();
 
         assert_eq!(found.unwrap().id, "1");
+    }
+
+    #[tokio::test]
+    async fn find_exact_performer_matches_by_fansly_user_id() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/graphql"))
+            .and(body_partial_json(json!({
+                "variables": { "performer_filter": { "custom_fields": [{
+                    "field": "fansly_user_id",
+                    "value": ["123"],
+                    "modifier": "EQUALS",
+                }] } }
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "findPerformers": { "performers": [{
+                    "id": "7",
+                    "name": "Renamed Creator",
+                    "urls": [],
+                    "image_path": null,
+                    "alias_list": [],
+                    "scene_count": 0
+                }] } }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = client_for(&server).await;
+        let profile = site_profile("https://fansly.com/wetthefuck");
+        let found = client.find_exact_performer(&profile).await.unwrap();
+
+        assert_eq!(found.unwrap().id, "7");
     }
 
     #[tokio::test]

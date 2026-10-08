@@ -180,13 +180,13 @@ export function App() {
     }
   }
 
-  async function linkPerformer(performerId: string, profileUrl: string) {
+  async function linkPerformer(performerId: string, profile: SiteProfile) {
     setLinkingId(performerId);
     try {
       const request: HostRequest = {
         type: "linkPerformer",
         performerId,
-        profileUrl,
+        profile,
       };
       const response: HostResponse = await browser.runtime.sendMessage(request);
       if (response.type === "performerLinked") {
@@ -347,7 +347,7 @@ export function App() {
                           onLink={() =>
                             void linkPerformer(
                               candidate.performer.id,
-                              stage.profile.profileUrl,
+                              stage.profile,
                             )
                           }
                         />
@@ -394,7 +394,7 @@ export function App() {
                               onLink={() =>
                                 void linkPerformer(
                                   candidate.performer.id,
-                                  stage.profile.profileUrl,
+                                  stage.profile,
                                 )
                               }
                             />

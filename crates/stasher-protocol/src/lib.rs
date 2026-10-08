@@ -139,10 +139,11 @@ pub enum HostRequest {
     SearchPerformers {
         query: String,
     },
-    /// Attach a profile URL to an existing performer instead of creating one.
+    /// Attach a detected profile (URL and remote id) to an existing performer
+    /// instead of creating one.
     LinkPerformer {
         performer_id: String,
-        profile_url: String,
+        profile: SiteProfile,
     },
     /// Create a new Stash performer from a detected profile.
     ImportPerformer {
