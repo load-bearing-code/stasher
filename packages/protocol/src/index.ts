@@ -1,6 +1,7 @@
 export type { HostRequest } from "./generated/HostRequest";
 export type { HostResponse } from "./generated/HostResponse";
 export type { MediaKind } from "./generated/MediaKind";
+export type { NfsShareConfig } from "./generated/NfsShareConfig";
 export type { Performer } from "./generated/Performer";
 export type { PerformerCandidate } from "./generated/PerformerCandidate";
 export type { PerformerDraft } from "./generated/PerformerDraft";

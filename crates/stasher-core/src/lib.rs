@@ -6,12 +6,14 @@ mod error;
 mod fansly;
 mod ffmpeg;
 mod nfs;
+mod nfs_client;
 mod stash;
 
 pub use error::CoreError;
 pub use fansly::{FanslyClient, PostImage};
 pub use ffmpeg::{FfmpegProcessor, NoopFfmpegProcessor};
 pub use nfs::{LocalFsWriter, NfsWriter};
+pub use nfs_client::{list_exports, Nfs3Writer, SwitchableWriter};
 pub use stash::{
     test_connection, ConfiguredStashClient, GraphqlStashClient, LoggingStashClient, StashClient,
 };

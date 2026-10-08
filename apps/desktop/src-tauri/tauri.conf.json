@@ -13,6 +13,8 @@
     "windows": [
       {
         "title": "Stasher",
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
         "width": 800,
         "height": 600,
         "resizable": true,

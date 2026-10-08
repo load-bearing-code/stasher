@@ -74,6 +74,18 @@ pub struct StashConfig {
     pub api_key: String,
 }
 
+/// An NFS export the desktop app writes media to directly over NFSv3.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct NfsShareConfig {
+    pub server: String,
+    pub export_path: String,
+    /// Folder inside the export that media is saved under; empty means the export root.
+    #[serde(default)]
+    pub media_path: String,
+}
+
 /// A creator profile detected on a supported site (e.g. a Fansly profile
 /// page), before it's known whether a matching Stash performer exists.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

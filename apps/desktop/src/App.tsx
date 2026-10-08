@@ -1,105 +1,50 @@
-import type { StashConfig } from "@stasher/protocol";
-import { Button } from "@stasher/ui/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@stasher/ui/components/card";
-import { Input } from "@stasher/ui/components/input";
-import { Label } from "@stasher/ui/components/label";
-import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState } from "react";
+import { DatabaseIcon, HardDriveIcon } from "lucide-react";
+import { type ComponentType, useState } from "react";
+import { StashSettings } from "./StashSettings";
+import { StorageSettings } from "./StorageSettings";
 
-type TestState = "idle" | "testing" | "ok" | "error";
+const TABS: { id: string; label: string; icon: ComponentType<{ className?: string }>; panel: ComponentType }[] = [
+  { id: "stash", label: "Stash", icon: DatabaseIcon, panel: StashSettings },
+  { id: "storage", label: "Storage", icon: HardDriveIcon, panel: StorageSettings },
+];
 
 function App() {
-  const [stashUrl, setStashUrl] = useState("");
-  const [apiKey, setApiKey] = useState("");
-  const [saved, setSaved] = useState(false);
-  const [testState, setTestState] = useState<TestState>("idle");
-  const [testMessage, setTestMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    invoke<StashConfig | null>("get_stash_config").then((config) => {
-      if (config) {
-        setStashUrl(config.stashUrl);
-        setApiKey(config.apiKey);
-      }
-    });
-  }, []);
-
-  function currentConfig(): StashConfig {
-    return { stashUrl, apiKey };
-  }
-
-  async function save() {
-    await invoke("set_stash_config", { config: currentConfig() });
-    setSaved(true);
-  }
-
-  async function testConnection() {
-    setTestState("testing");
-    setTestMessage(null);
-    try {
-      await invoke("test_stash_connection", { config: currentConfig() });
-      setTestState("ok");
-    } catch (error) {
-      setTestState("error");
-      setTestMessage(String(error));
-    }
-  }
+  const [active, setActive] = useState("storage");
+  const Panel = TABS.find((tab) => tab.id === active)?.panel ?? StorageSettings;
 
   return (
-    <main className="flex min-h-svh flex-col items-center justify-center gap-4 p-8">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Stash connection</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="stash-url">Stash URL</Label>
-            <Input
-              id="stash-url"
-              placeholder="http://localhost:9999"
-              value={stashUrl}
-              onChange={(event) => {
-                setStashUrl(event.target.value);
-                setSaved(false);
-                setTestState("idle");
-              }}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="api-key">API key</Label>
-            <Input
-              id="api-key"
-              type="password"
-              value={apiKey}
-              onChange={(event) => {
-                setApiKey(event.target.value);
-                setSaved(false);
-                setTestState("idle");
-              }}
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              disabled={testState === "testing" || !stashUrl}
-              onClick={testConnection}
-            >
-              {testState === "testing" ? "Testing..." : "Test connection"}
-            </Button>
-            <Button className="flex-1" disabled={!stashUrl} onClick={save}>
-              Save
-            </Button>
-          </div>
-          {testState === "ok" && (
-            <p className="text-sm text-muted-foreground">Connected to Stash.</p>
-          )}
-          {testState === "error" && (
-            <p className="text-sm text-destructive">{testMessage}</p>
-          )}
-          {saved && <p className="text-sm text-muted-foreground">Saved.</p>}
-        </CardContent>
-      </Card>
+    <main className="glass-thick flex h-svh flex-col overflow-hidden text-sm">
+      <nav
+        data-tauri-drag-region
+        className="relative flex justify-center gap-1 border-b px-4 pt-10 pb-4"
+      >
+        <h1
+          data-tauri-drag-region
+          className="absolute inset-x-0 top-0 flex h-8 items-center justify-center text-sm font-medium"
+        >
+          Settings
+        </h1>
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setActive(id)}
+            className={`flex w-16 cursor-pointer flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-xs transition-colors ${
+              active === id
+                ? "bg-secondary text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Icon className="size-4" />
+            {label}
+          </button>
+        ))}
+      </nav>
+      <div className="flex-1 overflow-y-auto overscroll-none">
+        <div className="mx-auto w-full max-w-xl p-6">
+          <Panel />
+        </div>
+      </div>
     </main>
   );
 }

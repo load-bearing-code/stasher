@@ -1,9 +1,12 @@
 @import "@stasher/ui/globals.css";
 
+html,
 body {
   margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 #root {
-  min-height: 100svh;
+  height: 100svh;
 }

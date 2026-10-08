@@ -11,6 +11,9 @@ pub enum CoreError {
     #[error("stash request failed: {0}")]
     StashRequest(#[from] reqwest::Error),
 
+    #[error("nfs error: {0}")]
+    Nfs(String),
+
     #[error("stash error: {0}")]
     Stash(String),
 }
