@@ -33,6 +33,8 @@ const RESERVED_PATHS = new Set([
 
 export const fanslyHandler: SiteHandler = {
   site: "fansly",
+  label: "Fansly",
+  host: "fansly.com",
 
   matchPost(url: URL): DetectedPost | null {
     const host = url.hostname.replace(/^www\./, "");

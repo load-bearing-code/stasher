@@ -96,6 +96,17 @@ pub struct FileLayoutConfig {
     pub template: String,
 }
 
+/// Which supported sites ("sources") the user has turned off. Sites default to
+/// enabled, so only the disabled slugs are persisted and newly added sites
+/// light up automatically. Persisted by the desktop app (see config.rs).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct SourcesConfig {
+    #[serde(default)]
+    pub disabled_sites: Vec<String>,
+}
+
 /// One export advertised by an NFS server, discovered when the desktop app
 /// polls a typed-in server address.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

@@ -1,14 +1,17 @@
 mod config;
 mod ipc;
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 
+use ipc::ExtensionLastSeen;
 use stasher_core::{
     AppCore, ConfiguredStashClient, FanslyClient, LocalFsWriter, Nfs3Writer, NoopFfmpegProcessor,
     SwitchableWriter,
 };
 use stasher_protocol::{
-    FileLayoutConfig, HostRequest, HostResponse, NfsExport, NfsShareConfig, StashConfig,
+    FileLayoutConfig, HostRequest, HostResponse, NfsExport, NfsShareConfig, SourcesConfig,
+    StashConfig,
 };
 use tauri::Manager;
 
@@ -19,6 +22,18 @@ type SharedStashConfig = Arc<RwLock<Option<StashConfig>>>;
 /// The filename template the settings UI reads and writes, shared with the
 /// `AppCore` so edits take effect for subsequent imports without a restart.
 type SharedFileLayout = Arc<RwLock<Option<FileLayoutConfig>>>;
+
+/// Which sources the user has turned off, read and written by the Sources tab.
+type SharedSourcesConfig = Arc<RwLock<Option<SourcesConfig>>>;
+
+/// What the Sources tab shows for the browser extension. The extension has no
+/// persistent connection to watch, so this reports when we last heard from it
+/// and lets the UI decide whether that's recent enough to call "connected".
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ExtensionStatus {
+    last_seen_ms: Option<u64>,
+}
 
 struct NfsState {
     config: RwLock<Option<NfsShareConfig>>,
@@ -119,6 +134,30 @@ fn disconnect_nfs_share(
     config::clear_nfs(&app)
 }
 
+#[tauri::command]
+fn get_sources_config(state: tauri::State<'_, SharedSourcesConfig>) -> Option<SourcesConfig> {
+    state.read().expect("sources config lock poisoned").clone()
+}
+
+#[tauri::command]
+fn set_sources_config(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, SharedSourcesConfig>,
+    config: SourcesConfig,
+) -> Result<(), String> {
+    config::save_sources(&app, &config)?;
+    *state.write().expect("sources config lock poisoned") = Some(config);
+    Ok(())
+}
+
+#[tauri::command]
+fn get_extension_status(last_seen: tauri::State<'_, ExtensionLastSeen>) -> ExtensionStatus {
+    let ms = last_seen.load(Ordering::Relaxed);
+    ExtensionStatus {
+        last_seen_ms: (ms != 0).then_some(ms),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tracing_subscriber::fmt::init();
@@ -135,7 +174,10 @@ pub fn run() {
             connect_nfs_share,
             disconnect_nfs_share,
             get_file_layout,
-            set_file_layout
+            set_file_layout,
+            get_sources_config,
+            set_sources_config,
+            get_extension_status
         ])
         .setup(|app| {
             let stash_dir = app.path().app_local_data_dir()?.join("stash");
@@ -143,6 +185,9 @@ pub fn run() {
             let stash_config: SharedStashConfig = Arc::new(RwLock::new(config::load(app.handle())));
             let file_layout: SharedFileLayout =
                 Arc::new(RwLock::new(config::load_file_layout(app.handle())));
+            let sources_config: SharedSourcesConfig =
+                Arc::new(RwLock::new(config::load_sources(app.handle())));
+            let extension_last_seen: ExtensionLastSeen = Arc::new(AtomicU64::new(0));
 
             let writer = Arc::new(SwitchableWriter::new(LocalFsWriter::new(stash_dir)));
             let nfs_config = config::load_nfs(app.handle());
@@ -166,10 +211,12 @@ pub fn run() {
                 fansly: Arc::new(FanslyClient::new().with_cache_file(fansly_cache)),
             });
             app.manage(core.clone());
-            ipc::spawn_socket_server(core);
+            ipc::spawn_socket_server(core, extension_last_seen.clone());
 
             app.manage(stash_config);
             app.manage(file_layout);
+            app.manage(sources_config);
+            app.manage(extension_last_seen);
 
             Ok(())
         })

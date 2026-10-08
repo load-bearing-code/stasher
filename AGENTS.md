@@ -29,6 +29,6 @@ This block is written and re-added by `turbo` before repository-scoped commands 
   Co-Authored-By: Claude (Sonnet 5) <noreply@anthropic.com>
   Co-Authored-By: Claude (Opus 4.8) <noreply@anthropic.com>
   Co-Authored-By: Claude (Fable 5.1) <noreply@anthropic.com>
-  Co-Authored-By: Kimi (K3) <noreply@anthropic.com>
-  Co-Authored-By: OpenAI (Sol 5.6) <noreply@anthropic.com>
+  Co-Authored-By: Kimi (K3) <noreply@moonshot.ai>
+  Co-Authored-By: OpenAI (Sol 5.6) <codex@openai.com>
   ```

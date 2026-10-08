@@ -20,6 +20,17 @@ export interface DetectedPost {
 /** Recognizes profile and post pages on one site. */
 export interface SiteHandler {
   site: string;
+  /** Human-facing name for the site (e.g. "Fansly"). */
+  label: string;
+  /** The site's primary host, shown in the UI (e.g. "fansly.com"). */
+  host: string;
   matchProfile(url: URL): DetectedProfile | null;
   matchPost(url: URL): DetectedPost | null;
+}
+
+/** The display-facing summary of a supported site, independent of its matchers. */
+export interface SiteInfo {
+  site: string;
+  label: string;
+  host: string;
 }

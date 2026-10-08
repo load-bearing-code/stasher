@@ -2,22 +2,37 @@
 //! Framing matches `stasher_protocol::framing` byte-for-byte; duplicated here
 //! in async form since the sync version is built on `std::io`, not tokio.
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use stasher_core::AppCore;
 use stasher_protocol::{socket_path, HostRequest, HostResponse};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{UnixListener, UnixStream};
 
-pub fn spawn_socket_server(core: Arc<AppCore>) {
+/// Unix-epoch millis of the last frame received from the extension. The host
+/// opens a fresh socket connection per request, so there's no long-lived
+/// connection to watch; this timestamp is the signal the Sources tab turns
+/// into a "connected recently" indicator. `0` means never.
+pub type ExtensionLastSeen = Arc<AtomicU64>;
+
+fn now_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+pub fn spawn_socket_server(core: Arc<AppCore>, last_seen: ExtensionLastSeen) {
     tauri::async_runtime::spawn(async move {
-        if let Err(err) = listen(core).await {
+        if let Err(err) = listen(core, last_seen).await {
             tracing::error!(%err, "stasher ipc server exited");
         }
     });
 }
 
-async fn listen(core: Arc<AppCore>) -> std::io::Result<()> {
+async fn listen(core: Arc<AppCore>, last_seen: ExtensionLastSeen) -> std::io::Result<()> {
     let path = socket_path();
     let _ = std::fs::remove_file(&path);
     let listener = UnixListener::bind(&path)?;
@@ -25,16 +40,21 @@ async fn listen(core: Arc<AppCore>) -> std::io::Result<()> {
 
     loop {
         let (stream, _) = listener.accept().await?;
-        tokio::spawn(handle_connection(stream, core.clone()));
+        tokio::spawn(handle_connection(stream, core.clone(), last_seen.clone()));
     }
 }
 
-async fn handle_connection(mut stream: UnixStream, core: Arc<AppCore>) {
+async fn handle_connection(
+    mut stream: UnixStream,
+    core: Arc<AppCore>,
+    last_seen: ExtensionLastSeen,
+) {
     loop {
         let request_bytes = match read_frame(&mut stream).await {
             Ok(bytes) => bytes,
             Err(_) => return,
         };
+        last_seen.store(now_millis(), Ordering::Relaxed);
 
         let response = match serde_json::from_slice::<HostRequest>(&request_bytes) {
             Ok(request) => core.handle(request).await,

@@ -1,12 +1,19 @@
-import { DatabaseIcon, HardDriveIcon } from "lucide-react";
+import { DatabaseIcon, GlobeIcon, HardDriveIcon } from "lucide-react";
 import { type ComponentType, StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { SourcesSettings } from "@/features/settings/sources/sources-settings";
 import { StashSettings } from "@/features/settings/stash/stash-settings";
 import { StorageSettings } from "@/features/settings/storage/storage-settings";
 import "./index.css";
 
-const TABS: { id: string; label: string; icon: ComponentType<{ className?: string }>; panel: ComponentType }[] = [
+const TABS: {
+  id: string;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  panel: ComponentType;
+}[] = [
   { id: "stash", label: "Stash", icon: DatabaseIcon, panel: StashSettings },
+  { id: "sources", label: "Sources", icon: GlobeIcon, panel: SourcesSettings },
   { id: "storage", label: "Storage", icon: HardDriveIcon, panel: StorageSettings },
 ];
 

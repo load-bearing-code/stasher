@@ -1,7 +1,10 @@
 import { fanslyHandler } from "./fansly";
-import type { DetectedPost, DetectedProfile, SiteHandler } from "./types";
+import type { DetectedPost, DetectedProfile, SiteHandler, SiteInfo } from "./types";
 
 const handlers: SiteHandler[] = [fanslyHandler];
+
+/** Every supported site, as display-facing summaries (the "sources" list). */
+export const sites: SiteInfo[] = handlers.map(({ site, label, host }) => ({ site, label, host }));
 
 /** Runs every registered site handler against `url`, returning the first post match. */
 export function matchPost(url: URL | string): DetectedPost | null {
