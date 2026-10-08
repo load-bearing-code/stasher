@@ -12,4 +12,8 @@ export type HostResponse = { "type": "pong", nonce: string, } | { "type": "jobAc
  * Only populated when the post isn't in Stash and the site lookup
  * succeeded.
  */
-post: PostDetails | null, } | { "type": "performerSearch", candidates: Array<PerformerCandidate>, } | { "type": "performerLinked", performer: Performer, } | { "type": "performerCreated", performer: Performer, };
+post: PostDetails | null, } | { "type": "postImported", postUrl: string, 
+/**
+ * How many media files were written to the library.
+ */
+files: number, } | { "type": "performerSearch", candidates: Array<PerformerCandidate>, } | { "type": "performerLinked", performer: Performer, } | { "type": "performerCreated", performer: Performer, };

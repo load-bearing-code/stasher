@@ -149,23 +149,37 @@ impl FanslyClient {
         Ok(profile)
     }
 
-    /// Fetches a post's caption and timestamp. The caption becomes the title.
-    pub async fn fetch_post(&self, post_id: &str) -> Result<PostDetails, CoreError> {
+    async fn fetch_post_response(
+        &self,
+        post_id: &str,
+        auth_token: Option<&str>,
+    ) -> Result<FanslyPosts, CoreError> {
         let url = format!("{}/api/v1/post", self.base_url);
-        let envelope: FanslyPostEnvelope = self
-            .http
-            .get(url)
-            .query(&[("ids", post_id)])
+        let mut request = self.http.get(url).query(&[("ids", post_id)]);
+        if let Some(token) = auth_token {
+            request = request.header("authorization", token);
+        }
+        let envelope: FanslyPostEnvelope = request
             .send()
             .await?
             .error_for_status()?
             .json()
             .await?;
+        if envelope.response.posts.is_empty() {
+            return Err(CoreError::Stash(format!(
+                "fansly: no post with id '{post_id}'"
+            )));
+        }
+        Ok(envelope.response)
+    }
 
+    /// Fetches a post's caption and timestamp. The caption becomes the title.
+    pub async fn fetch_post(&self, post_id: &str) -> Result<PostDetails, CoreError> {
         let FanslyPosts {
             posts,
             account_media,
-        } = envelope.response;
+            ..
+        } = self.fetch_post_response(post_id, None).await?;
         let mimetypes: Vec<&str> = account_media
             .iter()
             .filter_map(|entry| entry.media.as_ref()?.mimetype.as_deref())
@@ -178,11 +192,7 @@ impl FanslyClient {
             None
         };
 
-        let post = posts
-            .into_iter()
-            .next()
-            .ok_or_else(|| CoreError::Stash(format!("fansly: no post with id '{post_id}'")))?;
-
+        let post = posts.into_iter().next().expect("checked non-empty");
         let title = post
             .content
             .map(|content| content.trim().to_string())
@@ -192,6 +202,67 @@ impl FanslyClient {
             posted_at: post.created_at,
             media_kind,
         })
+    }
+
+    /// The highest-resolution image for each of a post's image attachments, in
+    /// attachment order. Fansly lists an original plus smaller variants per
+    /// item; the largest by pixel count wins. Items with no downloadable
+    /// location (e.g. locked content) are skipped. Signed CDN URLs expire, so
+    /// call this right before downloading.
+    pub async fn fetch_post_media(
+        &self,
+        post_id: &str,
+        auth_token: Option<&str>,
+    ) -> Result<Vec<PostImage>, CoreError> {
+        let FanslyPosts {
+            posts,
+            account_media,
+            account_media_bundles,
+        } = self.fetch_post_response(post_id, auth_token).await?;
+        let post = posts.into_iter().next().expect("checked non-empty");
+
+        // An attachment's `contentId` is either a single media item or a
+        // bundle of them.
+        let ordered: Vec<&FanslyAccountMedia> = if post.attachments.is_empty() {
+            account_media.iter().collect()
+        } else {
+            let ids = post.attachments.iter().flat_map(|attachment| {
+                match account_media_bundles
+                    .iter()
+                    .find(|bundle| bundle.id == attachment.content_id)
+                {
+                    Some(bundle) => bundle.account_media_ids.iter().map(String::as_str).collect(),
+                    None => vec![attachment.content_id.as_str()],
+                }
+            });
+            ids.filter_map(|id| account_media.iter().find(|entry| entry.id == id))
+                .collect()
+        };
+
+        let images: Vec<PostImage> = ordered
+            .iter()
+            .filter_map(|entry| best_image(entry.media.as_ref()?))
+            .collect();
+        if images.is_empty() && !ordered.is_empty() {
+            return Err(CoreError::Stash(
+                "this post's media is locked (subscribers or buyers only), so Fansly \
+                 gave no download links"
+                    .into(),
+            ));
+        }
+        Ok(images)
+    }
+
+    pub async fn download(&self, url: &str) -> Result<Vec<u8>, CoreError> {
+        let bytes = self
+            .http
+            .get(url)
+            .send()
+            .await?
+            .error_for_status()?
+            .bytes()
+            .await?;
+        Ok(bytes.to_vec())
     }
 
     async fn fetch_profile_uncached(
@@ -283,16 +354,33 @@ struct FanslyPosts {
     posts: Vec<FanslyPost>,
     #[serde(rename = "accountMedia", default)]
     account_media: Vec<FanslyAccountMedia>,
+    #[serde(rename = "accountMediaBundles", default)]
+    account_media_bundles: Vec<FanslyMediaBundle>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FanslyMediaBundle {
+    id: String,
+    #[serde(rename = "accountMediaIds", default)]
+    account_media_ids: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct FanslyAccountMedia {
+    #[serde(default)]
+    id: String,
     media: Option<FanslyMediaFile>,
 }
 
 #[derive(Debug, Deserialize)]
 struct FanslyMediaFile {
     mimetype: Option<String>,
+    width: Option<u32>,
+    height: Option<u32>,
+    #[serde(default)]
+    locations: Vec<FanslyMediaLocation>,
+    #[serde(default)]
+    variants: Vec<FanslyMediaFile>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -300,6 +388,54 @@ struct FanslyPost {
     content: Option<String>,
     #[serde(rename = "createdAt")]
     created_at: Option<u32>,
+    #[serde(default)]
+    attachments: Vec<FanslyAttachment>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FanslyAttachment {
+    #[serde(rename = "contentId")]
+    content_id: String,
+}
+
+/// One downloadable image, already resolved to the best available variant.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PostImage {
+    pub url: String,
+    pub mimetype: String,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl PostImage {
+    pub fn extension(&self) -> &str {
+        match self.mimetype.as_str() {
+            "image/jpeg" => "jpg",
+            "image/png" => "png",
+            "image/webp" => "webp",
+            "image/gif" => "gif",
+            other => other.strip_prefix("image/").unwrap_or("bin"),
+        }
+    }
+}
+
+fn best_image(media: &FanslyMediaFile) -> Option<PostImage> {
+    std::iter::once(media)
+        .chain(media.variants.iter())
+        .filter_map(|file| {
+            let mimetype = file.mimetype.as_deref()?;
+            if !mimetype.starts_with("image/") {
+                return None;
+            }
+            let url = file.locations.first()?.location.clone();
+            Some(PostImage {
+                url,
+                mimetype: mimetype.to_string(),
+                width: file.width.unwrap_or(0),
+                height: file.height.unwrap_or(0),
+            })
+        })
+        .max_by_key(|image| u64::from(image.width) * u64::from(image.height))
 }
 
 #[derive(Debug, Deserialize)]
@@ -336,6 +472,104 @@ mod tests {
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use super::*;
+
+    #[tokio::test]
+    async fn fetch_post_media_picks_largest_variant_in_attachment_order() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/post"))
+            .and(query_param("ids", "42"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "success": true,
+                "response": {
+                    "posts": [{
+                        "content": "hello",
+                        "createdAt": 1,
+                        "attachments": [{ "contentId": "b" }, { "contentId": "a" }]
+                    }],
+                    "accountMedia": [
+                        {
+                            "id": "a",
+                            "media": {
+                                "mimetype": "image/jpeg", "width": 1000, "height": 1000,
+                                "locations": [{ "location": "https://cdn.example/a-orig.jpg" }],
+                                "variants": [{
+                                    "mimetype": "image/jpeg", "width": 4000, "height": 3000,
+                                    "locations": [{ "location": "https://cdn.example/a-big.jpg" }]
+                                }]
+                            }
+                        },
+                        {
+                            "id": "b",
+                            "media": {
+                                "mimetype": "image/png", "width": 2000, "height": 2000,
+                                "locations": [{ "location": "https://cdn.example/b.png" }],
+                                "variants": [{
+                                    "mimetype": "image/jpeg", "width": 500, "height": 500,
+                                    "locations": [{ "location": "https://cdn.example/b-small.jpg" }]
+                                }]
+                            }
+                        },
+                        {
+                            "id": "c",
+                            "media": { "mimetype": "video/mp4", "locations": [] }
+                        }
+                    ]
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = FanslyClient::with_base_url(server.uri());
+        let images = client.fetch_post_media("42", None).await.unwrap();
+
+        let urls: Vec<&str> = images.iter().map(|image| image.url.as_str()).collect();
+        assert_eq!(
+            urls,
+            vec!["https://cdn.example/b.png", "https://cdn.example/a-big.jpg"]
+        );
+        assert_eq!(images[0].extension(), "png");
+        assert_eq!(images[1].extension(), "jpg");
+    }
+
+    #[tokio::test]
+    async fn fetch_post_media_expands_bundles_and_reports_locked_posts() {
+        let server = MockServer::start().await;
+        let body = |location: serde_json::Value| {
+            serde_json::json!({
+                "response": {
+                    "posts": [{ "attachments": [{ "contentType": 2, "contentId": "bundle" }] }],
+                    "accountMediaBundles": [{ "id": "bundle", "accountMediaIds": ["m2", "m1"] }],
+                    "accountMedia": [
+                        { "id": "m1", "media": { "mimetype": "image/jpeg", "width": 10, "height": 10, "locations": location } },
+                        { "id": "m2", "media": { "mimetype": "image/jpeg", "width": 20, "height": 20, "locations": location } }
+                    ]
+                }
+            })
+        };
+        Mock::given(method("GET"))
+            .and(path("/api/v1/post"))
+            .and(query_param("ids", "open"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(body(
+                serde_json::json!([{ "location": "https://cdn.example/x.jpg" }]),
+            )))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/post"))
+            .and(query_param("ids", "locked"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(body(serde_json::json!([]))))
+            .mount(&server)
+            .await;
+
+        let client = FanslyClient::with_base_url(server.uri());
+        let images = client.fetch_post_media("open", None).await.unwrap();
+        assert_eq!(images.len(), 2);
+        assert_eq!(images[0].width, 20);
+
+        let err = client.fetch_post_media("locked", None).await.unwrap_err();
+        assert!(err.to_string().contains("locked"));
+    }
 
     #[tokio::test]
     async fn fetch_profile_maps_account_to_site_profile() {

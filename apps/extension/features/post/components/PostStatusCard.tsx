@@ -5,6 +5,7 @@ import { CheckIcon, DownloadIcon, FilmIcon, ImageIcon, PlayIcon } from "lucide-r
 import { useState } from "react";
 import { RefreshButton } from "@/shared/components/RefreshButton";
 import { sendHostRequest } from "@/shared/host";
+import { getFanslyToken } from "../session";
 
 function formatPostedAt(seconds: number): string {
   const date = new Date(seconds * 1000);
@@ -37,12 +38,21 @@ export function PostStatusCard({
   onError: (message: string) => void;
 }) {
   const [importing, setImporting] = useState(false);
+  const [importedFiles, setImportedFiles] = useState<number | null>(null);
 
   async function importPost() {
     setImporting(true);
     try {
-      const response = await sendHostRequest({ type: "importPost", site, postId, postUrl });
+      const authToken = site === "fansly" ? await getFanslyToken() : null;
+      const response = await sendHostRequest({
+        type: "importPost",
+        site,
+        postId,
+        postUrl,
+        authToken,
+      });
       if (response.type === "error") onError(response.message);
+      else if (response.type === "postImported") setImportedFiles(response.files);
     } catch {
       onError("Couldn't reach the Stasher desktop app.");
     } finally {
@@ -85,6 +95,13 @@ export function PostStatusCard({
           <CardContent className="flex items-center gap-4 p-5">
             <CheckIcon className="size-5 text-primary" />
             <p className="font-semibold">This post is in your Stash</p>
+          </CardContent>
+        ) : importedFiles !== null ? (
+          <CardContent className="flex items-center gap-4 p-5">
+            <CheckIcon className="size-5 text-primary" />
+            <p className="font-semibold">
+              Saved {importedFiles} {importedFiles === 1 ? "file" : "files"} to your library
+            </p>
           </CardContent>
         ) : (
           <CardContent className="flex items-center gap-5 rounded-xl border border-dashed p-5">

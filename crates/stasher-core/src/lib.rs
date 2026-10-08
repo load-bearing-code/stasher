@@ -9,7 +9,7 @@ mod nfs;
 mod stash;
 
 pub use error::CoreError;
-pub use fansly::FanslyClient;
+pub use fansly::{FanslyClient, PostImage};
 pub use ffmpeg::{FfmpegProcessor, NoopFfmpegProcessor};
 pub use nfs::{LocalFsWriter, NfsWriter};
 pub use stash::{
@@ -39,6 +39,31 @@ impl AppCore {
             .read()
             .expect("stash config lock poisoned")
             .clone()
+    }
+
+    /// Downloads the best-resolution copy of each image in the post into
+    /// `fansly/<post_id>-<n>.<ext>` and returns how many files were written.
+    async fn import_fansly_images(
+        &self,
+        post_id: &str,
+        auth_token: Option<&str>,
+    ) -> Result<u32, CoreError> {
+        let images = self.fansly.fetch_post_media(post_id, auth_token).await?;
+        if images.is_empty() {
+            return Err(CoreError::Stash(
+                "this post has no downloadable images".into(),
+            ));
+        }
+        let mut written = 0;
+        for (index, image) in images.iter().enumerate() {
+            let bytes = self.fansly.download(&image.url).await?;
+            let name = format!("{post_id}-{}.{}", index + 1, image.extension());
+            self.nfs
+                .write_file(&std::path::Path::new("fansly").join(name), &bytes)
+                .await?;
+            written += 1;
+        }
+        Ok(written)
     }
 
     pub async fn handle(&self, request: HostRequest) -> HostResponse {
@@ -146,9 +171,27 @@ impl AppCore {
                     post,
                 }
             }
-            HostRequest::ImportPost { .. } => HostResponse::Error {
-                message: "Importing posts isn't implemented yet.".into(),
-            },
+            HostRequest::ImportPost {
+                site,
+                post_id,
+                post_url,
+                auth_token,
+            } => {
+                if site != "fansly" {
+                    return HostResponse::Error {
+                        message: format!("unsupported site: {site}"),
+                    };
+                }
+                match self
+                    .import_fansly_images(&post_id, auth_token.as_deref())
+                    .await
+                {
+                    Ok(files) => HostResponse::PostImported { post_url, files },
+                    Err(err) => HostResponse::Error {
+                        message: err.to_string(),
+                    },
+                }
+            }
             HostRequest::SearchPerformers { query } => {
                 match self.stash.search_performers(&query).await {
                     Ok(candidates) => HostResponse::PerformerSearch { candidates },
@@ -181,7 +224,7 @@ impl AppCore {
 #[cfg(test)]
 mod tests {
     use serde_json::json;
-    use wiremock::matchers::{method, path};
+    use wiremock::matchers::{header, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use super::*;
@@ -309,6 +352,73 @@ mod tests {
             }
             _ => panic!("expected PostLookup"),
         }
+    }
+
+    #[tokio::test]
+    async fn import_post_downloads_best_image_into_library() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/post"))
+            .and(header("authorization", "session-token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "response": {
+                    "posts": [{ "attachments": [{ "contentId": "a" }] }],
+                    "accountMedia": [{
+                        "id": "a",
+                        "media": {
+                            "mimetype": "image/jpeg", "width": 100, "height": 100,
+                            "locations": [{ "location": format!("{}/cdn/small.jpg", server.uri()) }],
+                            "variants": [{
+                                "mimetype": "image/jpeg", "width": 4000, "height": 3000,
+                                "locations": [{ "location": format!("{}/cdn/big.jpg", server.uri()) }]
+                            }]
+                        }
+                    }]
+                }
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/cdn/big.jpg"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(b"big-bytes".to_vec()))
+            .mount(&server)
+            .await;
+
+        let library = tempfile::tempdir().unwrap();
+        let core = AppCore {
+            nfs: Arc::new(LocalFsWriter::new(library.path())),
+            fansly: Arc::new(FanslyClient::with_base_url(server.uri())),
+            ..test_core()
+        };
+
+        let response = core
+            .handle(HostRequest::ImportPost {
+                site: "fansly".into(),
+                post_id: "42".into(),
+                post_url: "https://fansly.com/post/42".into(),
+                auth_token: Some("session-token".into()),
+            })
+            .await;
+        match response {
+            HostResponse::PostImported { files, .. } => assert_eq!(files, 1),
+            _ => panic!("expected PostImported"),
+        }
+        let saved = std::fs::read(library.path().join("fansly/42-1.jpg")).unwrap();
+        assert_eq!(saved, b"big-bytes");
+    }
+
+    #[tokio::test]
+    async fn write_file_rejects_paths_outside_the_library() {
+        let library = tempfile::tempdir().unwrap();
+        let writer = LocalFsWriter::new(library.path());
+        assert!(writer
+            .write_file(std::path::Path::new("../escape.jpg"), b"x")
+            .await
+            .is_err());
+        assert!(writer
+            .write_file(std::path::Path::new("/abs.jpg"), b"x")
+            .await
+            .is_err());
     }
 
     #[tokio::test]

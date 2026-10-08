@@ -199,6 +199,9 @@ pub enum HostRequest {
         site: String,
         post_id: String,
         post_url: String,
+        /// The user's session token for `site`, needed for locked media.
+        /// A credential: never log or persist it.
+        auth_token: Option<String>,
     },
     /// Free-text performer search (the popup's "search for someone else").
     SearchPerformers {
@@ -247,6 +250,11 @@ pub enum HostResponse {
         /// Only populated when the post isn't in Stash and the site lookup
         /// succeeded.
         post: Option<PostDetails>,
+    },
+    PostImported {
+        post_url: String,
+        /// How many media files were written to the library.
+        files: u32,
     },
     PerformerSearch {
         candidates: Vec<PerformerCandidate>,
