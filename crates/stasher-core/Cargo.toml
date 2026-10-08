@@ -1,0 +1,16 @@
+[package]
+name = "stasher-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+stasher-protocol = { path = "../stasher-protocol" }
+async-trait = "0.1"
+thiserror = "2"
+tracing = "0.1"
+tokio = { version = "1", features = ["fs", "rt"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }
+tempfile = "3"

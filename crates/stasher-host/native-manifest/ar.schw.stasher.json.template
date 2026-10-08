@@ -1,0 +1,7 @@
+{
+  "name": "ar.schw.stasher",
+  "description": "Bridges the Stasher Firefox extension to the Stasher desktop app",
+  "path": "REPLACE_WITH_ABSOLUTE_PATH_TO_stasher-host_BINARY",
+  "type": "stdio",
+  "allowed_extensions": ["stasher@schw.ar"]
+}

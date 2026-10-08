@@ -1,0 +1,27 @@
+[package]
+name = "stasher-desktop"
+version = "0.1.0"
+description = "Stasher desktop app"
+authors = ["load-bearing-code"]
+license = "UNLICENSED"
+repository = ""
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "stasher_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+tauri = { version = "2.11.6", features = [] }
+
+stasher-core = { path = "../../../crates/stasher-core" }
+stasher-protocol = { path = "../../../crates/stasher-protocol" }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "macros", "fs"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"

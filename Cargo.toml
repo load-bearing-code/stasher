@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/stasher-protocol",
+  "crates/stasher-core",
+  "crates/stasher-host",
+  "apps/desktop/src-tauri",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "UNLICENSED"

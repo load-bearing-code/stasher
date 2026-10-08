@@ -1,0 +1,9 @@
+@import "@stasher/ui/globals.css";
+
+body {
+  margin: 0;
+}
+
+#root {
+  min-height: 100svh;
+}

@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.output/
+.wxt/
+.turbo/
+*.log
+*.tsbuildinfo
+.DS_Store
+
+# Rust
+target/
+
+# Tauri
+apps/desktop/src-tauri/target/
+
+# Env
+.env
+.env.local
