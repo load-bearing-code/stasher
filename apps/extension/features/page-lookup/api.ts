@@ -1,5 +1,6 @@
 import { matchPost, matchProfile } from "@stasher/core";
 import type { HostRequest } from "@stasher/protocol";
+import { readOnlyfansProfileFromTab } from "@/features/sources/onlyfans-profile";
 import { isRedgifsUrl, readRedgifsOverlayPostFromTab } from "@/features/sources/redgifs-overlay";
 import { sendHostRequest } from "@/shared/host";
 import type { Stage } from "./types";
@@ -20,13 +21,26 @@ export async function fetchStage(refresh: boolean): Promise<Stage> {
   }
 
   let request: HostRequest;
-  if (detected) {
+  if (detected?.site === "onlyfans") {
+    const scrapedProfile =
+      tab?.id !== undefined ? await readOnlyfansProfileFromTab(tab.id).catch(() => null) : null;
+    if (!scrapedProfile) return { kind: "unsupported" };
     request = {
       type: "lookupProfile",
       site: detected.site,
       username: detected.username,
       profileUrl: detected.profileUrl,
       refresh,
+      scrapedProfile,
+    };
+  } else if (detected) {
+    request = {
+      type: "lookupProfile",
+      site: detected.site,
+      username: detected.username,
+      profileUrl: detected.profileUrl,
+      refresh,
+      scrapedProfile: null,
     };
   } else if (detectedPost) {
     request = {

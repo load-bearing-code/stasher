@@ -267,6 +267,12 @@ pub enum HostRequest {
         /// it fresh.
         #[serde(default)]
         refresh: bool,
+        /// Profile data the extension already read from the page itself,
+        /// for sites the desktop app has no API access to (e.g. OnlyFans,
+        /// whose API requires a signature its own frontend computes).
+        /// Ignored for sites the desktop app fetches directly.
+        #[serde(default)]
+        scraped_profile: Option<SiteProfile>,
     },
     /// Detected a post on a supported site; check whether Stash already has
     /// a scene for it.

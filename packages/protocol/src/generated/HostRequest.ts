@@ -12,7 +12,14 @@ export type HostRequest = { "type": "ping", nonce: string, } | { "type": "submit
  * Skip the desktop app's cached copy of the site profile and fetch
  * it fresh.
  */
-refresh: boolean, } | { "type": "lookupPost", site: string, postId: string, postUrl: string, } | { "type": "importPost", site: string, postId: string, postUrl: string, 
+refresh: boolean, 
+/**
+ * Profile data the extension already read from the page itself,
+ * for sites the desktop app has no API access to (e.g. OnlyFans,
+ * whose API requires a signature its own frontend computes).
+ * Ignored for sites the desktop app fetches directly.
+ */
+scrapedProfile: SiteProfile | null, } | { "type": "lookupPost", site: string, postId: string, postUrl: string, } | { "type": "importPost", site: string, postId: string, postUrl: string, 
 /**
  * The user's session token for `site`, needed for locked media.
  * A credential: never log or persist it.

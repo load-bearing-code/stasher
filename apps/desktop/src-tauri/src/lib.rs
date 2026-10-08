@@ -180,6 +180,7 @@ async fn get_source_statuses(
     let core = core.inner().clone();
     let _ = core.refresh_source_status("fansly").await;
     let _ = core.refresh_source_status("redgifs").await;
+    let _ = core.refresh_source_status("onlyfans").await;
     Ok(core.current_source_statuses())
 }
 

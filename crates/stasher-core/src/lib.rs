@@ -79,6 +79,7 @@ impl AppCore {
         match site {
             "fansly" => Some("https://fansly.com/"),
             "redgifs" => Some("https://www.redgifs.com/"),
+            "onlyfans" => Some("https://onlyfans.com/"),
             _ => None,
         }
     }
@@ -426,6 +427,7 @@ impl AppCore {
                 username,
                 profile_url,
                 refresh,
+                scraped_profile,
             } => {
                 let fetched = match site.as_str() {
                     "fansly" if refresh => {
@@ -436,6 +438,14 @@ impl AppCore {
                         self.redgifs.refresh_profile(&username, &profile_url).await
                     }
                     "redgifs" => self.redgifs.fetch_profile(&username, &profile_url).await,
+                    // OnlyFans' API requires a signature only its own frontend
+                    // can compute, so the desktop app can't fetch this itself;
+                    // the extension reads it from the page and sends it along.
+                    "onlyfans" => scraped_profile.ok_or_else(|| {
+                        CoreError::Stash(
+                            "onlyfans profile data wasn't provided by the extension".into(),
+                        )
+                    }),
                     _ => {
                         return HostResponse::Error {
                             message: format!("unsupported site: {site}"),
@@ -1334,15 +1344,78 @@ mod tests {
         let core = test_core();
         let response = core
             .handle(HostRequest::LookupProfile {
-                site: "onlyfans".into(),
+                site: "patreon".into(),
                 username: "someone".into(),
-                profile_url: "https://onlyfans.com/someone".into(),
+                profile_url: "https://patreon.com/someone".into(),
                 refresh: false,
+                scraped_profile: None,
             })
             .await;
         match response {
             HostResponse::Error { message } => assert!(message.contains("unsupported site")),
             _ => panic!("expected Error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn lookup_profile_uses_the_extension_scraped_onlyfans_profile() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/graphql"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "findPerformers": { "performers": [] } }
+            })))
+            .mount(&server)
+            .await;
+
+        let core = core_with_stash(test_core(), &server);
+        let scraped = SiteProfile {
+            site: "onlyfans".into(),
+            username: "someone".into(),
+            profile_url: "https://onlyfans.com/someone".into(),
+            display_name: Some("Someone".into()),
+            photo_url: Some("https://cdn.example/someone.jpg".into()),
+            remote_id: None,
+            bio: None,
+            location: None,
+            links: Vec::new(),
+            tags: Vec::new(),
+        };
+
+        let response = core
+            .handle(HostRequest::LookupProfile {
+                site: "onlyfans".into(),
+                username: "someone".into(),
+                profile_url: "https://onlyfans.com/someone".into(),
+                refresh: false,
+                scraped_profile: Some(scraped),
+            })
+            .await;
+
+        match response {
+            HostResponse::ProfileLookup { profile, .. } => {
+                assert_eq!(profile.site, "onlyfans");
+                assert_eq!(profile.display_name.as_deref(), Some("Someone"));
+            }
+            other => panic!("expected ProfileLookup, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn lookup_profile_rejects_onlyfans_without_scraped_profile() {
+        let core = test_core();
+        let response = core
+            .handle(HostRequest::LookupProfile {
+                site: "onlyfans".into(),
+                username: "someone".into(),
+                profile_url: "https://onlyfans.com/someone".into(),
+                refresh: false,
+                scraped_profile: None,
+            })
+            .await;
+        match response {
+            HostResponse::Error { message } => assert!(message.contains("wasn't provided")),
+            other => panic!("expected Error, got {other:?}"),
         }
     }
 
@@ -1407,6 +1480,7 @@ mod tests {
                 username: "wetthefuck".into(),
                 profile_url: "https://fansly.com/wetthefuck".into(),
                 refresh: false,
+                scraped_profile: None,
             })
             .await;
 
@@ -1454,6 +1528,7 @@ mod tests {
                 username: "someuser".into(),
                 profile_url: "https://www.redgifs.com/users/someuser".into(),
                 refresh: false,
+                scraped_profile: None,
             })
             .await;
 

@@ -73,6 +73,12 @@ const FANSLY_USER_ID_FIELD: &str = "fansly_user_id";
 /// separate internal account id, so the username doubles as the identifier).
 const REDGIFS_USER_ID_FIELD: &str = "redgifs_user_id";
 
+/// Custom field holding the performer's OnlyFans username. OnlyFans profiles
+/// are scraped by the extension rather than fetched by the desktop app, and
+/// often carry no stable internal account id, so the username doubles as the
+/// identifier, same as RedGifs.
+const ONLYFANS_USER_ID_FIELD: &str = "onlyfans_user_id";
+
 /// Custom fields to write for `profile`; empty when its site has no custom
 /// field or the profile carries no remote id.
 fn custom_fields_for(profile: &SiteProfile) -> serde_json::Map<String, Value> {
@@ -80,6 +86,7 @@ fn custom_fields_for(profile: &SiteProfile) -> serde_json::Map<String, Value> {
     let field = match profile.site.as_str() {
         "fansly" => Some(FANSLY_USER_ID_FIELD),
         "redgifs" => Some(REDGIFS_USER_ID_FIELD),
+        "onlyfans" => Some(ONLYFANS_USER_ID_FIELD),
         _ => None,
     };
     if let (Some(field), Some(id)) = (field, &profile.remote_id) {

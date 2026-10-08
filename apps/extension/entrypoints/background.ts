@@ -5,6 +5,7 @@ import {
   isFanslyUrl,
   readFanslySessionFromTab,
 } from "@/features/sources/fansly-session";
+import { readOnlyfansProfileFromTab } from "@/features/sources/onlyfans-profile";
 import {
   isRedgifsUrl,
   readRedgifsOverlayPostFromTab,
@@ -237,7 +238,9 @@ export default defineBackground(() => {
     try {
       let cacheKey: string;
       let request: HostRequest;
-      if (profile) {
+      if (profile?.site === "onlyfans") {
+        const scrapedProfile = await readOnlyfansProfileFromTab(tabId).catch(() => null);
+        if (!scrapedProfile) return;
         cacheKey = profile.profileUrl;
         request = {
           type: "lookupProfile",
@@ -245,6 +248,17 @@ export default defineBackground(() => {
           username: profile.username,
           profileUrl: profile.profileUrl,
           refresh: false,
+          scrapedProfile,
+        };
+      } else if (profile) {
+        cacheKey = profile.profileUrl;
+        request = {
+          type: "lookupProfile",
+          site: profile.site,
+          username: profile.username,
+          profileUrl: profile.profileUrl,
+          refresh: false,
+          scrapedProfile: null,
         };
       } else if (post) {
         cacheKey = post.postUrl;
