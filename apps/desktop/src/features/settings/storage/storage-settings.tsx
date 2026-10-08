@@ -1,6 +1,15 @@
+import type { NfsExport } from "@stasher/protocol";
 import { Badge } from "@stasher/ui/components/badge";
 import { Button } from "@stasher/ui/components/button";
-import { FolderIcon, FolderTreeIcon, HardDriveIcon, PlugIcon, ServerIcon, UnplugIcon } from "lucide-react";
+import {
+  CheckIcon,
+  FolderIcon,
+  FolderTreeIcon,
+  HardDriveIcon,
+  PlugIcon,
+  ServerIcon,
+  UnplugIcon,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { SettingsSection } from "@/features/settings/settings-section";
 import {
@@ -17,6 +26,22 @@ import {
 import { IconInput } from "@/shared/components/icon-input";
 import { Row } from "@/shared/components/row";
 
+// A plausible NAS address: a hostname or IP, before we try to reach it.
+const isLikelyHost = (value: string) => /^[a-zA-Z0-9][a-zA-Z0-9.-]{2,}$/.test(value);
+
+function formatSize(bytes: number | null): string | null {
+  if (bytes === null || bytes <= 0) return null;
+  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  const rounded = value >= 10 || unit === 0 ? Math.round(value) : Number(value.toFixed(1));
+  return `${rounded} ${units[unit]}`;
+}
+
 export function StorageSettings() {
   const [server, setServer] = useState("");
   const [exportPath, setExportPath] = useState("");
@@ -24,7 +49,7 @@ export function StorageSettings() {
   const [mounted, setMounted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [exports, setExports] = useState<string[] | null>(null);
+  const [exports, setExports] = useState<NfsExport[] | null>(null);
   const [browsing, setBrowsing] = useState(false);
   const [browseError, setBrowseError] = useState<string | null>(null);
   const [folderBrowser, setFolderBrowser] = useState<FolderBrowserState | null>(null);
@@ -53,18 +78,39 @@ export function StorageSettings() {
     }
   }
 
-  async function browseExports() {
-    setBrowsing(true);
-    setBrowseError(null);
-    setExports(null);
-    try {
-      setExports(await listNfsExports(server));
-    } catch (err) {
-      setBrowseError(String(err));
-    } finally {
-      setBrowsing(false);
+  // Poll the server for its exports as soon as a plausible address is typed,
+  // so the available mounts list themselves without a manual step.
+  useEffect(() => {
+    if (mounted) return;
+    const host = server.trim();
+    if (!isLikelyHost(host)) {
+      setExports(null);
+      setBrowseError(null);
+      return;
     }
-  }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      setBrowsing(true);
+      setBrowseError(null);
+      listNfsExports(host)
+        .then((result) => {
+          if (!cancelled) setExports(result);
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setExports(null);
+            setBrowseError(String(err));
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setBrowsing(false);
+        });
+    }, 600);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [server, mounted]);
 
   async function openFolder(path: string) {
     setFolderBrowser({ path, dirs: null, error: null });
@@ -92,45 +138,48 @@ export function StorageSettings() {
           />
         </Row>
         <Row label="Export path" htmlFor="nfs-export">
-          <div className="flex gap-1.5">
-            <IconInput
-              id="nfs-export"
-              icon={<FolderTreeIcon />}
-              placeholder="/volume1/media"
-              value={exportPath}
-              disabled={mounted}
-              onChange={(event) => setExportPath(event.target.value)}
-            />
-            <Button
-              variant="secondary"
-              size="sm"
-              className="h-7"
-              disabled={mounted || browsing || !server}
-              onClick={browseExports}
-            >
-              {browsing ? "Searching…" : "Browse…"}
-            </Button>
-          </div>
+          <IconInput
+            id="nfs-export"
+            icon={<FolderTreeIcon />}
+            placeholder="/volume1/media"
+            value={exportPath}
+            disabled={mounted}
+            onChange={(event) => setExportPath(event.target.value)}
+          />
         </Row>
-        {exports && (
+        {!mounted && browsing && !exports && (
+          <p className="col-start-2 text-xs text-muted-foreground">
+            Looking for exports on {server.trim()}…
+          </p>
+        )}
+        {!mounted && exports && exports.length > 0 && (
           <div className="col-start-2 flex flex-col gap-0.5">
-            {exports.length === 0 && (
-              <p className="text-xs text-muted-foreground">No exports found on {server}.</p>
-            )}
-            {exports.map((path) => (
-              <button
-                key={path}
-                type="button"
-                className="cursor-pointer rounded-lg px-2.5 py-1 text-left font-mono text-xs hover:bg-secondary"
-                onClick={() => {
-                  setExportPath(path);
-                  setExports(null);
-                }}
-              >
-                {path}
-              </button>
-            ))}
+            {exports.map((item) => {
+              const selected = item.path === exportPath;
+              const size = formatSize(item.totalBytes);
+              return (
+                <button
+                  key={item.path}
+                  type="button"
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left font-mono text-xs ${selected ? "bg-primary/15" : "hover:bg-secondary"}`}
+                  onClick={() => setExportPath(item.path)}
+                >
+                  <FolderIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate">{item.path}</span>
+                  {size && <span className="text-muted-foreground">{size}</span>}
+                  {selected && <CheckIcon className="size-3.5 shrink-0 text-primary" />}
+                </button>
+              );
+            })}
+            <p className="px-2.5 pt-0.5 text-xs text-muted-foreground">
+              {exports.length} {exports.length === 1 ? "export" : "exports"} on {server.trim()}
+            </p>
           </div>
+        )}
+        {!mounted && exports && exports.length === 0 && (
+          <p className="col-start-2 text-xs text-muted-foreground">
+            No exports found on {server.trim()}.
+          </p>
         )}
         {browseError && <p className="col-start-2 text-xs text-destructive">{browseError}</p>}
         <Row label="Media folder" htmlFor="nfs-media">

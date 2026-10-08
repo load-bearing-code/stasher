@@ -86,6 +86,18 @@ pub struct NfsShareConfig {
     pub media_path: String,
 }
 
+/// One export advertised by an NFS server, discovered when the desktop app
+/// polls a typed-in server address.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct NfsExport {
+    pub path: String,
+    /// Total size of the filesystem backing the export, in bytes. `None` when
+    /// the server didn't answer a capacity probe.
+    pub total_bytes: Option<f64>,
+}
+
 /// A creator profile detected on a supported site (e.g. a Fansly profile
 /// page), before it's known whether a matching Stash performer exists.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

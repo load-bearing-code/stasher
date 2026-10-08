@@ -1,4 +1,4 @@
-import type { NfsShareConfig } from "@stasher/protocol";
+import type { NfsExport, NfsShareConfig } from "@stasher/protocol";
 import { invoke } from "@tauri-apps/api/core";
 
 export function getNfsShare(): Promise<NfsShareConfig | null> {
@@ -13,8 +13,8 @@ export function disconnectNfsShare(): Promise<void> {
   return invoke("disconnect_nfs_share");
 }
 
-export function listNfsExports(server: string): Promise<string[]> {
-  return invoke<string[]>("list_nfs_exports", { server });
+export function listNfsExports(server: string): Promise<NfsExport[]> {
+  return invoke<NfsExport[]>("list_nfs_exports", { server });
 }
 
 export function listNfsDirs(args: {

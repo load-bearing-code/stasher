@@ -7,7 +7,7 @@ use stasher_core::{
     AppCore, ConfiguredStashClient, FanslyClient, LocalFsWriter, Nfs3Writer, NoopFfmpegProcessor,
     SwitchableWriter,
 };
-use stasher_protocol::{HostRequest, HostResponse, NfsShareConfig, StashConfig};
+use stasher_protocol::{HostRequest, HostResponse, NfsExport, NfsShareConfig, StashConfig};
 use tauri::Manager;
 
 /// The Stash connection the settings UI reads and writes, shared with the
@@ -53,7 +53,7 @@ fn get_nfs_share(state: tauri::State<'_, NfsState>) -> Option<NfsShareConfig> {
 }
 
 #[tauri::command]
-async fn list_nfs_exports(server: String) -> Result<Vec<String>, String> {
+async fn list_nfs_exports(server: String) -> Result<Vec<NfsExport>, String> {
     stasher_core::list_exports(&server)
         .await
         .map_err(|err| err.to_string())

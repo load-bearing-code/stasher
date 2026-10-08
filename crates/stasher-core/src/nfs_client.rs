@@ -15,7 +15,7 @@ use nfs3_client::nfs3_types::rpc::{auth_unix, opaque_auth};
 use nfs3_client::nfs3_types::xdr_codec::Opaque;
 use nfs3_client::tokio::{TokioConnector, TokioIo};
 use nfs3_client::{MountClient, Nfs3Connection, Nfs3ConnectionBuilder, PortmapperClient};
-use stasher_protocol::{NfsShareConfig, StashJob};
+use stasher_protocol::{NfsExport, NfsShareConfig, StashJob};
 use tokio::net::TcpStream;
 
 use crate::error::CoreError;
@@ -390,13 +390,14 @@ impl NfsWriter for Nfs3Writer {
     }
 }
 
-/// Asks the server which paths it exports.
-pub async fn list_exports(server: &str) -> Result<Vec<String>, CoreError> {
+/// Asks the server which paths it exports, then probes each one's capacity so
+/// the UI can show sizes alongside the auto-discovered mounts.
+pub async fn list_exports(server: &str) -> Result<Vec<NfsExport>, CoreError> {
     let server = server.trim();
     if server.is_empty() {
         return Err(CoreError::Nfs("enter a server first".into()));
     }
-    with_timeout("listing exports", async {
+    let (ip, paths) = with_timeout("listing exports", async {
         let ip = resolve_host(server).await?;
 
         let stream = TcpStream::connect((ip, PMAP_PORT))
@@ -417,13 +418,57 @@ pub async fn list_exports(server: &str) -> Result<Vec<String>, CoreError> {
             .await
             .map_err(|err| nfs_err("export list", err))?;
 
-        Ok(exports
+        let paths: Vec<String> = exports
             .into_inner()
             .iter()
             .map(|node| String::from_utf8_lossy(node.ex_dir.0.as_ref()).into_owned())
-            .collect())
+            .collect();
+        Ok::<_, CoreError>((ip, paths))
     })
-    .await
+    .await?;
+
+    // Size each export concurrently; a slow or unreadable export just shows
+    // no size rather than failing the whole list.
+    let mut sizes: Vec<Option<f64>> = vec![None; paths.len()];
+    let mut set = tokio::task::JoinSet::new();
+    for (index, path) in paths.iter().cloned().enumerate() {
+        set.spawn(async move { (index, export_total_bytes(ip, &path).await) });
+    }
+    while let Some(result) = set.join_next().await {
+        if let Ok((index, bytes)) = result {
+            sizes[index] = bytes;
+        }
+    }
+
+    Ok(paths
+        .into_iter()
+        .zip(sizes)
+        .map(|(path, total_bytes)| NfsExport { path, total_bytes })
+        .collect())
+}
+
+/// Mounts one export and reads its total capacity via FSSTAT. Best-effort:
+/// returns `None` on any failure or timeout.
+async fn export_total_bytes(host: IpAddr, export: &str) -> Option<f64> {
+    let probe = async {
+        let mut conn = Nfs3ConnectionBuilder::new(TokioConnector, host.to_string(), export)
+            .connect_from_privileged_port(false)
+            .credential(credential())
+            .mount()
+            .await
+            .ok()?;
+        let root = conn.root_nfs_fh3();
+        let result = conn.fsstat(&nfs3::FSSTAT3args::from(root)).await;
+        let _ = conn.unmount().await;
+        match result {
+            Ok(Nfs3Result::Ok(ok)) => Some(ok.tbytes as f64),
+            _ => None,
+        }
+    };
+    with_timeout("sizing export", async { Ok(probe.await) })
+        .await
+        .ok()
+        .flatten()
 }
 
 /// Routes writes to the NFS share when one is configured, otherwise to a
