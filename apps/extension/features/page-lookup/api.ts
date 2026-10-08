@@ -1,5 +1,6 @@
 import { matchPost, matchProfile } from "@stasher/core";
 import type { HostRequest } from "@stasher/protocol";
+import { isRedgifsUrl, readRedgifsOverlayPostFromTab } from "@/features/sources/redgifs-overlay";
 import { sendHostRequest } from "@/shared/host";
 import type { Stage } from "./types";
 
@@ -8,8 +9,15 @@ export async function fetchStage(refresh: boolean): Promise<Stage> {
     active: true,
     currentWindow: true,
   });
-  const detected = tab?.url ? matchProfile(tab.url) : null;
-  const detectedPost = tab?.url && !detected ? matchPost(tab.url) : null;
+  let detected = tab?.url ? matchProfile(tab.url) : null;
+  let detectedPost = tab?.url && !detected ? matchPost(tab.url) : null;
+  if (!detectedPost && tab?.id !== undefined && isRedgifsUrl(tab.url)) {
+    const overlayPost = await readRedgifsOverlayPostFromTab(tab.id).catch(() => null);
+    if (overlayPost) {
+      detectedPost = { site: "redgifs", postId: overlayPost.postId, postUrl: overlayPost.postUrl };
+      detected = null;
+    }
+  }
 
   let request: HostRequest;
   if (detected) {

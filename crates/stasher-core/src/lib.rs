@@ -251,9 +251,11 @@ impl AppCore {
         for (index, image) in post.images.iter().enumerate() {
             let bytes = self.fansly.download(&image.url).await?;
             let relative = self.file_path(
+                "fansly",
                 post_id,
                 index,
-                image,
+                image.extension(),
+                image.height,
                 &performer.name,
                 template.as_deref(),
                 post.title.as_deref(),
@@ -266,14 +268,58 @@ impl AppCore {
         Ok((written, performer))
     }
 
-    /// The relative path one downloaded image is written to: rendered from the
-    /// template when set, otherwise the legacy `fansly/<id>-<n>.<ext>`.
+    /// Downloads a RedGifs post's video, filing it under the Stash performer
+    /// its creator maps to. Like Fansly imports, this is refused unless that
+    /// performer already exists.
+    async fn import_redgifs_video(&self, post_id: &str) -> Result<(u32, Performer), CoreError> {
+        let info = self.redgifs.fetch_post(post_id).await?;
+        let url = info
+            .download_url
+            .ok_or_else(|| CoreError::Stash("this post has no downloadable video".into()))?;
+        let creator = info.creator.ok_or_else(|| {
+            CoreError::Stash("couldn't tell which RedGifs creator this post belongs to".into())
+        })?;
+        let performer = self
+            .stash
+            .find_exact_performer(&creator)
+            .await?
+            .ok_or_else(|| {
+                CoreError::Stash(
+                    "this creator isn't in Stash yet — import them as a performer first, \
+                     then retry"
+                        .into(),
+                )
+            })?;
+
+        let bytes = self.redgifs.download(&url).await?;
+        let template = self.template();
+        let date = info.details.posted_at.map(layout::unix_to_ymd);
+        let relative = self.file_path(
+            "redgifs",
+            post_id,
+            0,
+            &info.extension,
+            info.height,
+            &performer.name,
+            template.as_deref(),
+            info.details.title.as_deref(),
+            date.as_deref(),
+            false,
+        );
+        self.nfs.write_file(&relative, &bytes).await?;
+        Ok((1, performer))
+    }
+
+    /// The relative path one downloaded file is written to: rendered from the
+    /// template when set, otherwise the legacy `<site>/<id>-<n>.<ext>`.
     #[allow(clippy::too_many_arguments)]
     fn file_path(
         &self,
+        site: &str,
         post_id: &str,
         index: usize,
-        image: &PostImage,
+        extension: &str,
+        height: u32,
         performer: &str,
         template: Option<&str>,
         title: Option<&str>,
@@ -281,24 +327,24 @@ impl AppCore {
         multiple: bool,
     ) -> std::path::PathBuf {
         let Some(template) = template else {
-            let name = format!("{post_id}-{}.{}", index + 1, image.extension());
-            return std::path::Path::new("fansly").join(name);
+            let name = format!("{post_id}-{}.{extension}", index + 1);
+            return std::path::Path::new(site).join(name);
         };
         let name = MediaName {
-            site: "fansly".into(),
+            site: site.into(),
             performer: Some(performer.to_string()),
             id: post_id.into(),
             title: title.map(str::to_string),
             date: date.map(str::to_string),
-            resolution: (image.height > 0).then(|| format!("{}p", image.height)),
-            extension: image.extension().into(),
+            resolution: (height > 0).then(|| format!("{height}p")),
+            extension: extension.into(),
         };
         let rendered = render_path(template, &name);
         // A template that renders to nothing (all tokens empty, no literals)
         // would write to the library root; fall back so that can't happen.
         if rendered.as_os_str().is_empty() {
-            let name = format!("{post_id}-{}.{}", index + 1, image.extension());
-            return std::path::Path::new("fansly").join(name);
+            let name = format!("{post_id}-{}.{extension}", index + 1);
+            return std::path::Path::new(site).join(name);
         }
         if multiple {
             layout::with_index(&rendered, index + 1)
@@ -410,7 +456,7 @@ impl AppCore {
                 post_id,
                 post_url,
             } => {
-                if site != "fansly" {
+                if site != "fansly" && site != "redgifs" {
                     return HostResponse::Error {
                         message: format!("unsupported site: {site}"),
                     };
@@ -427,25 +473,37 @@ impl AppCore {
                 // media would be filed under, and whether they're already a
                 // Stash performer. Best-effort: a failure here just leaves the
                 // creator card off rather than failing the lookup.
-                let info = if in_stash {
-                    None
+                let (post, creator) = if in_stash {
+                    (None, None)
                 } else {
-                    self.fansly.fetch_post(&post_id).await.ok()
-                };
-                let mut creator = None;
-                let mut creator_in_stash = false;
-                let post = match info {
-                    Some(info) => {
-                        if let Some(account_id) = &info.account_id {
-                            if let Ok((profile, performer)) = self.resolve_creator(account_id).await
-                            {
-                                creator_in_stash = performer.is_some();
-                                creator = Some(profile);
+                    match site.as_str() {
+                        "fansly" => match self.fansly.fetch_post(&post_id).await {
+                            Ok(info) => {
+                                let creator = match &info.account_id {
+                                    Some(account_id) => self
+                                        .resolve_creator(account_id)
+                                        .await
+                                        .ok()
+                                        .map(|(profile, _)| profile),
+                                    None => None,
+                                };
+                                (Some(info.details), creator)
                             }
-                        }
-                        Some(info.details)
+                            Err(_) => (None, None),
+                        },
+                        "redgifs" => match self.redgifs.fetch_post(&post_id).await {
+                            Ok(info) => (Some(info.details), info.creator),
+                            Err(_) => (None, None),
+                        },
+                        _ => unreachable!("checked above"),
                     }
-                    None => None,
+                };
+                let creator_in_stash = match &creator {
+                    Some(profile) => matches!(
+                        self.stash.find_exact_performer(profile).await,
+                        Ok(Some(_))
+                    ),
+                    None => false,
                 };
                 HostResponse::PostLookup {
                     post_url,
@@ -461,15 +519,16 @@ impl AppCore {
                 post_url,
                 auth_token,
             } => {
-                if site != "fansly" {
-                    return HostResponse::Error {
-                        message: format!("unsupported site: {site}"),
-                    };
-                }
-                match self
-                    .import_fansly_images(&post_id, auth_token.as_deref())
-                    .await
-                {
+                let imported = match site.as_str() {
+                    "fansly" => self.import_fansly_images(&post_id, auth_token.as_deref()).await,
+                    "redgifs" => self.import_redgifs_video(&post_id).await,
+                    _ => {
+                        return HostResponse::Error {
+                            message: format!("unsupported site: {site}"),
+                        };
+                    }
+                };
+                match imported {
                     Ok((files, performer)) => HostResponse::PostImported {
                         post_url,
                         files,
@@ -512,6 +571,7 @@ impl AppCore {
 #[cfg(test)]
 mod tests {
     use serde_json::json;
+    use stasher_protocol::MediaKind;
     use wiremock::matchers::{body_string_contains, header, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -1260,5 +1320,215 @@ mod tests {
             }
             other => panic!("expected ProfileLookup, got {other:?}"),
         }
+    }
+
+    /// Mounts a RedGifs `/v2/auth/temporary` response so any RedGifs API
+    /// call on `server` can obtain its anonymous bearer token.
+    async fn mock_redgifs_token(server: &MockServer) {
+        Mock::given(method("GET"))
+            .and(path("/v2/auth/temporary"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "token": "anon-token"
+            })))
+            .mount(server)
+            .await;
+    }
+
+    #[tokio::test]
+    async fn lookup_post_dispatches_to_redgifs() {
+        let server = MockServer::start().await;
+        mock_redgifs_token(&server).await;
+        Mock::given(method("GET"))
+            .and(path("/v2/gifs/abc123"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "gif": {
+                    "id": "abc123",
+                    "description": "Having fun in the sun",
+                    "createDate": 1_700_000_000,
+                    "type": 1,
+                    "height": 1080,
+                    "urls": { "hd": format!("{}/media/abc123.mp4", server.uri()) },
+                    "userName": "someuser"
+                },
+                "user": { "username": "someuser", "profileImageUrl": "https://userpic.redgifs.com/a.png" }
+            })))
+            .mount(&server)
+            .await;
+        // Scene lookup: this post isn't in Stash.
+        Mock::given(method("POST"))
+            .and(path("/graphql"))
+            .and(body_string_contains("findScenes"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "findScenes": { "count": 0 } }
+            })))
+            .mount(&server)
+            .await;
+        // Performer lookup: the creator is a known performer.
+        Mock::given(method("POST"))
+            .and(path("/graphql"))
+            .and(body_string_contains("findPerformers"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "findPerformers": { "performers": [{
+                    "id": "1", "name": "Some User", "urls": [],
+                    "image_path": null, "alias_list": [], "scene_count": 0
+                }] } }
+            })))
+            .mount(&server)
+            .await;
+
+        let core = core_with_stash(
+            AppCore {
+                redgifs: Arc::new(RedgifsClient::with_base_url(server.uri())),
+                ..test_core()
+            },
+            &server,
+        );
+
+        let response = core
+            .handle(HostRequest::LookupPost {
+                site: "redgifs".into(),
+                post_id: "abc123".into(),
+                post_url: "https://www.redgifs.com/watch/abc123".into(),
+            })
+            .await;
+        match response {
+            HostResponse::PostLookup {
+                in_stash,
+                post,
+                creator,
+                creator_in_stash,
+                ..
+            } => {
+                assert!(!in_stash);
+                assert!(creator_in_stash);
+                let post = post.expect("post details resolved");
+                assert_eq!(post.title.as_deref(), Some("Having fun in the sun"));
+                assert!(matches!(post.media_kind, Some(MediaKind::Video)));
+                let creator = creator.expect("creator resolved");
+                assert_eq!(creator.username, "someuser");
+            }
+            other => panic!("expected PostLookup, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn import_post_downloads_redgifs_video_into_library() {
+        let server = MockServer::start().await;
+        mock_redgifs_token(&server).await;
+        Mock::given(method("GET"))
+            .and(path("/v2/gifs/abc123"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "gif": {
+                    "id": "abc123",
+                    "description": "Having fun in the sun",
+                    "createDate": 1_700_000_000,
+                    "type": 1,
+                    "height": 1080,
+                    "urls": { "hd": format!("{}/media/abc123.mp4", server.uri()) },
+                    "userName": "someuser"
+                },
+                "user": { "username": "someuser" }
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/media/abc123.mp4"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(b"video-bytes".to_vec()))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/graphql"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "findPerformers": { "performers": [{
+                    "id": "1", "name": "Some User", "urls": [],
+                    "image_path": null, "alias_list": [], "scene_count": 0
+                }] } }
+            })))
+            .mount(&server)
+            .await;
+
+        let library = tempfile::tempdir().unwrap();
+        let core = core_with_stash(
+            AppCore {
+                nfs: Arc::new(LocalFsWriter::new(library.path())),
+                redgifs: Arc::new(RedgifsClient::with_base_url(server.uri())),
+                ..test_core()
+            },
+            &server,
+        );
+
+        let response = core
+            .handle(HostRequest::ImportPost {
+                site: "redgifs".into(),
+                post_id: "abc123".into(),
+                post_url: "https://www.redgifs.com/watch/abc123".into(),
+                auth_token: None,
+            })
+            .await;
+        match response {
+            HostResponse::PostImported {
+                files, performer, ..
+            } => {
+                assert_eq!(files, 1);
+                assert_eq!(performer.name, "Some User");
+            }
+            other => panic!("expected PostImported, got {other:?}"),
+        }
+        let saved = std::fs::read(library.path().join("redgifs/abc123-1.mp4")).unwrap();
+        assert_eq!(saved, b"video-bytes");
+    }
+
+    #[tokio::test]
+    async fn import_post_refuses_when_redgifs_creator_is_not_in_stash() {
+        let server = MockServer::start().await;
+        mock_redgifs_token(&server).await;
+        Mock::given(method("GET"))
+            .and(path("/v2/gifs/abc123"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "gif": {
+                    "id": "abc123",
+                    "description": null,
+                    "createDate": 1_700_000_000,
+                    "type": 1,
+                    "height": 1080,
+                    "urls": { "hd": format!("{}/media/abc123.mp4", server.uri()) },
+                    "userName": "someuser"
+                },
+                "user": { "username": "someuser" }
+            })))
+            .mount(&server)
+            .await;
+        // No performer matches the creator.
+        Mock::given(method("POST"))
+            .and(path("/graphql"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "findPerformers": { "performers": [] } }
+            })))
+            .mount(&server)
+            .await;
+
+        let library = tempfile::tempdir().unwrap();
+        let core = core_with_stash(
+            AppCore {
+                nfs: Arc::new(LocalFsWriter::new(library.path())),
+                redgifs: Arc::new(RedgifsClient::with_base_url(server.uri())),
+                ..test_core()
+            },
+            &server,
+        );
+
+        let response = core
+            .handle(HostRequest::ImportPost {
+                site: "redgifs".into(),
+                post_id: "abc123".into(),
+                post_url: "https://www.redgifs.com/watch/abc123".into(),
+                auth_token: None,
+            })
+            .await;
+        match response {
+            HostResponse::Error { message } => assert!(message.contains("isn't in Stash")),
+            other => panic!("expected Error, got {other:?}"),
+        }
+        assert!(!library.path().join("redgifs").exists());
     }
 }

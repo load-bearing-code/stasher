@@ -12,7 +12,7 @@ use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
-use stasher_protocol::SiteProfile;
+use stasher_protocol::{MediaKind, PostDetails, SiteProfile};
 
 use crate::error::CoreError;
 
@@ -230,6 +230,87 @@ impl RedgifsClient {
             .ok_or_else(|| CoreError::Stash(format!("redgifs: no creator named '{username}'")))?;
         Ok(user_to_profile(user, profile_url))
     }
+
+    /// Fetches a gif's display details, its creator (RedGifs returns the
+    /// uploader inline with the gif, so no separate lookup is needed), and
+    /// its downloadable video URL — everything a post lookup or import needs
+    /// from one request.
+    pub async fn fetch_post(&self, id: &str) -> Result<RedgifsPostInfo, CoreError> {
+        let token = self.token().await?;
+        let url = format!("{}/v2/gifs/{id}", self.base_url);
+        let response = self
+            .http
+            .get(url)
+            .header("authorization", format!("Bearer {token}"))
+            .send()
+            .await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(CoreError::Stash(format!("redgifs: no gif with id '{id}'")));
+        }
+        let envelope: RedgifsGifResponse = response.error_for_status()?.json().await?;
+        let gif = envelope.gif;
+
+        let title = gif
+            .description
+            .as_ref()
+            .map(|description| description.trim().to_string())
+            .filter(|description| !description.is_empty());
+        let media_kind = match gif.kind {
+            1 => Some(MediaKind::Video),
+            2 => Some(MediaKind::Image),
+            _ => None,
+        };
+        let profile_url = format!("https://www.redgifs.com/users/{}", gif.user_name);
+        let creator = envelope
+            .user
+            .map(|user| user_to_profile(user, &profile_url));
+
+        let download_url = gif.urls.hd.or(gif.urls.sd);
+        let extension = download_url
+            .as_deref()
+            .and_then(extension_from_url)
+            .unwrap_or_else(|| "mp4".to_string());
+
+        Ok(RedgifsPostInfo {
+            details: PostDetails {
+                title,
+                posted_at: gif.create_date.and_then(|secs| u32::try_from(secs).ok()),
+                media_kind,
+            },
+            creator,
+            download_url,
+            extension,
+            height: gif.height.unwrap_or(0),
+        })
+    }
+
+    pub async fn download(&self, url: &str) -> Result<Vec<u8>, CoreError> {
+        let bytes = self.http.get(url).send().await?.error_for_status()?.bytes().await?;
+        Ok(bytes.to_vec())
+    }
+}
+
+/// Everything a post lookup or import needs from one gif fetch.
+#[derive(Debug, Clone)]
+pub struct RedgifsPostInfo {
+    pub details: PostDetails,
+    /// `None` when RedGifs didn't return an uploader for this gif.
+    pub creator: Option<SiteProfile>,
+    /// `None` when neither the HD nor SD url was present (e.g. removed
+    /// content).
+    pub download_url: Option<String>,
+    pub extension: String,
+    pub height: u32,
+}
+
+/// The file extension from a URL's path, lowercased. Used to name the
+/// downloaded file after whatever format RedGifs actually served.
+fn extension_from_url(url: &str) -> Option<String> {
+    url.rsplit('/')
+        .next()?
+        .rsplit('.')
+        .next()
+        .map(str::to_lowercase)
 }
 
 /// Maps a RedGifs user onto a `SiteProfile` for `profile_url`. RedGifs has no
@@ -295,6 +376,36 @@ struct RedgifsAuthResponse {
 struct RedgifsSearchResponse {
     #[serde(default)]
     users: Vec<RedgifsUser>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RedgifsGifResponse {
+    gif: RedgifsGif,
+    /// The uploader, included inline by the gifs endpoint (unlike the
+    /// search endpoint, which returns users directly).
+    user: Option<RedgifsUser>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RedgifsGif {
+    description: Option<String>,
+    #[serde(rename = "createDate")]
+    create_date: Option<i64>,
+    /// `1` = video, `2` = image. Anything else maps to no known kind rather
+    /// than guessing.
+    #[serde(rename = "type")]
+    kind: u32,
+    #[serde(default)]
+    height: Option<u32>,
+    urls: RedgifsGifUrls,
+    #[serde(rename = "userName")]
+    user_name: String,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct RedgifsGifUrls {
+    hd: Option<String>,
+    sd: Option<String>,
 }
 
 /// RedGifs exposes social links as `socialUrl1`..`socialUrl18` fields rather

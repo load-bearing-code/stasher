@@ -5,6 +5,11 @@ import {
   isFanslyUrl,
   readFanslySessionFromTab,
 } from "@/features/sources/fansly-session";
+import {
+  isRedgifsUrl,
+  readRedgifsOverlayPostFromTab,
+  REDGIFS_OVERLAY_CHANGED,
+} from "@/features/sources/redgifs-overlay";
 
 const HEARTBEAT_MS = 60_000;
 const SOURCE_REFRESH_MS = 5 * 60_000;
@@ -200,21 +205,31 @@ export default defineBackground(() => {
   const results = new Map<number, { url: string; state: BadgeState }>();
 
   async function refreshBadge(tabId: number, url: string | undefined) {
+    // RedGIFs' lightbox never changes `url`, so a cached result for it can't
+    // be trusted to reflect whether the overlay is open.
+    const onRedgifs = isRedgifsUrl(url);
     const cached = results.get(tabId);
-    if (url && cached?.url === url) {
+    if (!onRedgifs && url && cached?.url === url) {
       await setBadge(tabId, cached.state);
       return;
     }
 
     results.delete(tabId);
-    const profile = url ? matchProfile(url) : null;
-    const post = url && !profile ? matchPost(url) : null;
+    let profile = url ? matchProfile(url) : null;
+    let post = url && !profile ? matchPost(url) : null;
+    if (!post && onRedgifs) {
+      const overlayPost = await readRedgifsOverlayPostFromTab(tabId).catch(() => null);
+      if (overlayPost) {
+        post = { site: "redgifs", postId: overlayPost.postId, postUrl: overlayPost.postUrl };
+        profile = null;
+      }
+    }
     if (!url || (!profile && !post)) {
       await setBadge(tabId, "none");
       return;
     }
 
-    const key = `${tabId}:${url}`;
+    const key = `${tabId}:${profile?.profileUrl ?? post?.postUrl}`;
     if (pendingLookups.has(key)) return;
     pendingLookups.add(key);
     await setBadge(tabId, "none");
@@ -287,6 +302,15 @@ export default defineBackground(() => {
       message.type === FANSLY_SESSION_CHANGED
     ) {
       if (sender.tab?.id !== undefined) void reportFanslySession(sender.tab.id);
+      return false;
+    }
+    if (
+      typeof message === "object" &&
+      message !== null &&
+      "type" in message &&
+      message.type === REDGIFS_OVERLAY_CHANGED
+    ) {
+      if (sender.tab?.id !== undefined) void refreshBadge(sender.tab.id, sender.tab.url);
       return false;
     }
     if (typeof message !== "object" || message === null || !("type" in message)) return false;

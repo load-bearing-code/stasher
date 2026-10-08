@@ -5,9 +5,20 @@ export const redgifsHandler: SiteHandler = {
   label: "RedGIFs",
   host: "redgifs.com",
 
-  // Post/gif import isn't supported yet, so gif pages aren't recognized.
-  matchPost(_url: URL): DetectedPost | null {
-    return null;
+  matchPost(url: URL): DetectedPost | null {
+    const host = url.hostname.replace(/^www\./, "");
+    if (host !== "redgifs.com") return null;
+
+    const [route, id] = url.pathname.split("/").filter(Boolean);
+    if (route?.toLowerCase() !== "watch" || !id) return null;
+
+    return {
+      site: "redgifs",
+      postId: id,
+      // Canonical origin regardless of www., so the same post always
+      // produces the same URL for Stash to match against.
+      postUrl: `https://www.redgifs.com/watch/${id}`,
+    };
   },
 
   matchProfile(url: URL): DetectedProfile | null {
