@@ -52,6 +52,7 @@ pub fn run() {
         ])
         .setup(|app| {
             let stash_dir = app.path().app_local_data_dir()?.join("stash");
+            let fansly_cache = app.path().app_cache_dir()?.join("fansly-profiles.json");
             let stash_config: SharedStashConfig = Arc::new(RwLock::new(config::load(app.handle())));
 
             let core = Arc::new(AppCore {
@@ -59,7 +60,7 @@ pub fn run() {
                 nfs: Arc::new(LocalFsWriter::new(stash_dir)),
                 stash: Arc::new(ConfiguredStashClient::new(stash_config.clone())),
                 stash_config: stash_config.clone(),
-                fansly: Arc::new(FanslyClient::new()),
+                fansly: Arc::new(FanslyClient::new().with_cache_file(fansly_cache)),
             });
             app.manage(core.clone());
             ipc::spawn_socket_server(core);
