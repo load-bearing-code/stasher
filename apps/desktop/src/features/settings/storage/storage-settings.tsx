@@ -23,6 +23,7 @@ import {
   FolderBrowser,
   type FolderBrowserState,
 } from "@/features/settings/storage/components/folder-browser";
+import { FileLayout } from "@/features/settings/storage/file-layout/file-layout";
 import { IconInput } from "@/shared/components/icon-input";
 import { Row } from "@/shared/components/row";
 
@@ -125,138 +126,146 @@ export function StorageSettings() {
   const complete = Boolean(server && exportPath);
 
   return (
-    <SettingsSection title="Media location" description="Where downloaded media is written">
-      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-x-3 gap-y-2.5 rounded-lg border border-white/10 bg-white/[0.035] p-3.5">
-        <Row label="Server" htmlFor="nfs-server">
-          <IconInput
-            id="nfs-server"
-            icon={<ServerIcon />}
-            placeholder="nas.local"
-            value={server}
-            disabled={mounted}
-            onChange={(event) => setServer(event.target.value)}
-          />
-        </Row>
-        <Row label="Export path" htmlFor="nfs-export">
-          <IconInput
-            id="nfs-export"
-            icon={<FolderTreeIcon />}
-            placeholder="/volume1/media"
-            value={exportPath}
-            disabled={mounted}
-            onChange={(event) => setExportPath(event.target.value)}
-          />
-        </Row>
-        {!mounted && browsing && !exports && (
-          <p className="col-start-2 text-xs text-muted-foreground">
-            Looking for exports on {server.trim()}…
-          </p>
-        )}
-        {!mounted && exports && exports.length > 0 && (
-          <div className="col-start-2 flex flex-col gap-0.5">
-            {exports.map((item) => {
-              const selected = item.path === exportPath;
-              const size = formatSize(item.totalBytes);
-              return (
-                <button
-                  key={item.path}
-                  type="button"
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left font-mono text-xs ${selected ? "bg-primary/15" : "hover:bg-secondary"}`}
-                  onClick={() => setExportPath(item.path)}
-                >
-                  <FolderIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate">{item.path}</span>
-                  {size && <span className="text-muted-foreground">{size}</span>}
-                  {selected && <CheckIcon className="size-3.5 shrink-0 text-primary" />}
-                </button>
-              );
-            })}
-            <p className="px-2.5 pt-0.5 text-xs text-muted-foreground">
-              {exports.length} {exports.length === 1 ? "export" : "exports"} on {server.trim()}
-            </p>
-          </div>
-        )}
-        {!mounted && exports && exports.length === 0 && (
-          <p className="col-start-2 text-xs text-muted-foreground">
-            No exports found on {server.trim()}.
-          </p>
-        )}
-        {browseError && <p className="col-start-2 text-xs text-destructive">{browseError}</p>}
-        <Row label="Media folder" htmlFor="nfs-media">
-          <div className="flex gap-1.5">
+    <div className="flex flex-col gap-6">
+      <SettingsSection title="Media location" description="Where downloaded media is written">
+        <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-x-3 gap-y-2.5 rounded-lg border border-white/10 bg-white/[0.035] p-3.5">
+          <Row label="Server" htmlFor="nfs-server">
             <IconInput
-              id="nfs-media"
-              icon={<FolderIcon />}
-              placeholder="/ (export root)"
-              value={mediaPath}
+              id="nfs-server"
+              icon={<ServerIcon />}
+              placeholder="nas.local"
+              value={server}
               disabled={mounted}
-              onChange={(event) => setMediaPath(event.target.value)}
+              onChange={(event) => setServer(event.target.value)}
             />
-            <Button
-              variant="secondary"
-              size="sm"
-              className="h-7"
-              disabled={mounted || !complete}
-              onClick={() => openFolder(mediaPath.split("/").filter(Boolean).join("/"))}
-            >
-              Choose…
-            </Button>
-          </div>
-        </Row>
-        {folderBrowser && (
-          <FolderBrowser
-            state={folderBrowser}
-            onOpen={openFolder}
-            onUse={(path) => {
-              setMediaPath(path);
-              setFolderBrowser(null);
-            }}
-            onCancel={() => setFolderBrowser(null)}
-          />
-        )}
-      </div>
-
-      <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-white/[0.035] p-3.5">
-        <div className="flex items-center gap-3">
-          <div className="flex size-[34px] shrink-0 items-center justify-center rounded-lg border bg-secondary text-muted-foreground">
-            <HardDriveIcon className="size-4" />
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="truncate font-mono text-xs font-medium">
-              {complete
-                ? `${server}:${exportPath}${mediaPath ? `/${mediaPath.replace(/^\/+/, "")}` : ""}`
-                : "No share configured"}
-            </span>
-            <span className="truncate text-xs text-muted-foreground">
-              {mounted ? "Writing media directly over NFSv3" : "Saving to the local folder"}
-            </span>
-          </div>
-          <Badge
-            variant="outline"
-            className={mounted ? "border-success/30 bg-success/10 text-success" : "text-muted-foreground"}
-          >
-            <span className={`size-1.5 rounded-full ${mounted ? "bg-success" : "bg-muted-foreground"}`} />
-            {mounted ? "Mounted" : "Not mounted"}
-          </Badge>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-xs text-destructive">{error}</span>
-          {mounted ? (
-            <Button disabled={busy} onClick={() => run(() => disconnectNfsShare(), false)}>
-              <UnplugIcon />
-              {busy ? "Unmounting…" : "Unmount"}
-            </Button>
-          ) : (
-            <Button
-              disabled={busy || !complete}
-              onClick={() => run(() => connectNfsShare({ server, exportPath, mediaPath }), true)}
-            >
-              <PlugIcon />
-              {busy ? "Mounting…" : "Mount"}
-            </Button>
+          </Row>
+          <Row label="Export path" htmlFor="nfs-export">
+            <IconInput
+              id="nfs-export"
+              icon={<FolderTreeIcon />}
+              placeholder="/volume1/media"
+              value={exportPath}
+              disabled={mounted}
+              onChange={(event) => setExportPath(event.target.value)}
+            />
+          </Row>
+          {!mounted && browsing && !exports && (
+            <p className="col-start-2 text-xs text-muted-foreground">
+              Looking for exports on {server.trim()}…
+            </p>
+          )}
+          {!mounted && exports && exports.length > 0 && (
+            <div className="col-start-2 flex flex-col gap-0.5">
+              {exports.map((item) => {
+                const selected = item.path === exportPath;
+                const size = formatSize(item.totalBytes);
+                return (
+                  <button
+                    key={item.path}
+                    type="button"
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left font-mono text-xs ${selected ? "bg-primary/15" : "hover:bg-secondary"}`}
+                    onClick={() => setExportPath(item.path)}
+                  >
+                    <FolderIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate">{item.path}</span>
+                    {size && <span className="text-muted-foreground">{size}</span>}
+                    {selected && <CheckIcon className="size-3.5 shrink-0 text-primary" />}
+                  </button>
+                );
+              })}
+              <p className="px-2.5 pt-0.5 text-xs text-muted-foreground">
+                {exports.length} {exports.length === 1 ? "export" : "exports"} on {server.trim()}
+              </p>
+            </div>
+          )}
+          {!mounted && exports && exports.length === 0 && (
+            <p className="col-start-2 text-xs text-muted-foreground">
+              No exports found on {server.trim()}.
+            </p>
+          )}
+          {browseError && <p className="col-start-2 text-xs text-destructive">{browseError}</p>}
+          <Row label="Media folder" htmlFor="nfs-media">
+            <div className="flex gap-1.5">
+              <IconInput
+                id="nfs-media"
+                icon={<FolderIcon />}
+                placeholder="/ (export root)"
+                value={mediaPath}
+                disabled={mounted}
+                onChange={(event) => setMediaPath(event.target.value)}
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-7"
+                disabled={mounted || !complete}
+                onClick={() => openFolder(mediaPath.split("/").filter(Boolean).join("/"))}
+              >
+                Choose…
+              </Button>
+            </div>
+          </Row>
+          {folderBrowser && (
+            <FolderBrowser
+              state={folderBrowser}
+              onOpen={openFolder}
+              onUse={(path) => {
+                setMediaPath(path);
+                setFolderBrowser(null);
+              }}
+              onCancel={() => setFolderBrowser(null)}
+            />
           )}
         </div>
-      </div>
-    </SettingsSection>
+
+        <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-white/[0.035] p-3.5">
+          <div className="flex items-center gap-3">
+            <div className="flex size-[34px] shrink-0 items-center justify-center rounded-lg border bg-secondary text-muted-foreground">
+              <HardDriveIcon className="size-4" />
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="truncate font-mono text-xs font-medium">
+                {complete
+                  ? `${server}:${exportPath}${mediaPath ? `/${mediaPath.replace(/^\/+/, "")}` : ""}`
+                  : "No share configured"}
+              </span>
+              <span className="truncate text-xs text-muted-foreground">
+                {mounted ? "Writing media directly over NFSv3" : "Saving to the local folder"}
+              </span>
+            </div>
+            <Badge
+              variant="outline"
+              className={
+                mounted ? "border-success/30 bg-success/10 text-success" : "text-muted-foreground"
+              }
+            >
+              <span
+                className={`size-1.5 rounded-full ${mounted ? "bg-success" : "bg-muted-foreground"}`}
+              />
+              {mounted ? "Mounted" : "Not mounted"}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="min-w-0 flex-1 truncate text-xs text-destructive">{error}</span>
+            {mounted ? (
+              <Button disabled={busy} onClick={() => run(() => disconnectNfsShare(), false)}>
+                <UnplugIcon />
+                {busy ? "Unmounting…" : "Unmount"}
+              </Button>
+            ) : (
+              <Button
+                disabled={busy || !complete}
+                onClick={() => run(() => connectNfsShare({ server, exportPath, mediaPath }), true)}
+              >
+                <PlugIcon />
+                {busy ? "Mounting…" : "Mount"}
+              </Button>
+            )}
+          </div>
+        </div>
+      </SettingsSection>
+
+      <FileLayout />
+    </div>
   );
 }
