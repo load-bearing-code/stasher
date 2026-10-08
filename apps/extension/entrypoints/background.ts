@@ -5,6 +5,7 @@ import {
   isFanslyUrl,
   readFanslySessionFromTab,
 } from "@/features/sources/fansly-session";
+import { readFaphouseProfileFromTab } from "@/features/sources/faphouse-profile";
 import { readOnlyfansProfileFromTab } from "@/features/sources/onlyfans-profile";
 import {
   isRedgifsUrl,
@@ -238,8 +239,11 @@ export default defineBackground(() => {
     try {
       let cacheKey: string;
       let request: HostRequest;
-      if (profile?.site === "onlyfans") {
-        const scrapedProfile = await readOnlyfansProfileFromTab(tabId).catch(() => null);
+      if (profile?.site === "onlyfans" || profile?.site === "faphouse") {
+        const scrapedProfile = await (profile.site === "onlyfans"
+          ? readOnlyfansProfileFromTab(tabId)
+          : readFaphouseProfileFromTab(tabId)
+        ).catch(() => null);
         if (!scrapedProfile) return;
         cacheKey = profile.profileUrl;
         request = {

@@ -181,6 +181,7 @@ async fn get_source_statuses(
     let _ = core.refresh_source_status("fansly").await;
     let _ = core.refresh_source_status("redgifs").await;
     let _ = core.refresh_source_status("onlyfans").await;
+    let _ = core.refresh_source_status("faphouse").await;
     Ok(core.current_source_statuses())
 }
 

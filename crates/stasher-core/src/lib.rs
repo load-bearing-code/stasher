@@ -80,6 +80,7 @@ impl AppCore {
             "fansly" => Some("https://fansly.com/"),
             "redgifs" => Some("https://www.redgifs.com/"),
             "onlyfans" => Some("https://onlyfans.com/"),
+            "faphouse" => Some("https://faphouse.com/"),
             _ => None,
         }
     }
@@ -444,6 +445,13 @@ impl AppCore {
                     "onlyfans" => scraped_profile.ok_or_else(|| {
                         CoreError::Stash(
                             "onlyfans profile data wasn't provided by the extension".into(),
+                        )
+                    }),
+                    // FapHouse profile pages are a client-rendered SPA with no
+                    // public API, so the extension scrapes the page itself.
+                    "faphouse" => scraped_profile.ok_or_else(|| {
+                        CoreError::Stash(
+                            "faphouse profile data wasn't provided by the extension".into(),
                         )
                     }),
                     _ => {

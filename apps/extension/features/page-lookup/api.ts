@@ -1,5 +1,6 @@
 import { matchPost, matchProfile } from "@stasher/core";
 import type { HostRequest } from "@stasher/protocol";
+import { readFaphouseProfileFromTab } from "@/features/sources/faphouse-profile";
 import { readOnlyfansProfileFromTab } from "@/features/sources/onlyfans-profile";
 import { isRedgifsUrl, readRedgifsOverlayPostFromTab } from "@/features/sources/redgifs-overlay";
 import { sendHostRequest } from "@/shared/host";
@@ -21,9 +22,14 @@ export async function fetchStage(refresh: boolean): Promise<Stage> {
   }
 
   let request: HostRequest;
-  if (detected?.site === "onlyfans") {
+  if (detected?.site === "onlyfans" || detected?.site === "faphouse") {
     const scrapedProfile =
-      tab?.id !== undefined ? await readOnlyfansProfileFromTab(tab.id).catch(() => null) : null;
+      tab?.id !== undefined
+        ? await (detected.site === "onlyfans"
+            ? readOnlyfansProfileFromTab(tab.id)
+            : readFaphouseProfileFromTab(tab.id)
+          ).catch(() => null)
+        : null;
     if (!scrapedProfile) return { kind: "unsupported" };
     request = {
       type: "lookupProfile",

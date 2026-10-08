@@ -18,6 +18,11 @@ export default defineConfig({
       },
     },
     permissions: ["nativeMessaging", "activeTab", "storage"],
-    host_permissions: ["*://*.fansly.com/*", "*://*.redgifs.com/*", "*://onlyfans.com/*"],
+    host_permissions: [
+      "*://*.fansly.com/*",
+      "*://*.redgifs.com/*",
+      "*://onlyfans.com/*",
+      "*://faphouse.com/*",
+    ],
   },
 });
