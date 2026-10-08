@@ -17,6 +17,7 @@
     "@stasher/core": "workspace:*",
     "@stasher/protocol": "workspace:*",
     "@stasher/ui": "workspace:*",
+    "lucide-react": "^1.52.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

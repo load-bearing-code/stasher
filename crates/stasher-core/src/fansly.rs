@@ -8,6 +8,13 @@ use crate::error::CoreError;
 
 const DEFAULT_BASE_URL: &str = "https://apiv3.fansly.com";
 
+/// Fansly's API rejects requests with no `User-Agent` (403), so send a
+/// browser-like one. The value doesn't need to match a real browser version;
+/// it just has to be present.
+const USER_AGENT: &str =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 \
+     (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
 pub struct FanslyClient {
     http: reqwest::Client,
     base_url: String,
@@ -21,16 +28,16 @@ impl Default for FanslyClient {
 
 impl FanslyClient {
     pub fn new() -> Self {
-        Self {
-            http: reqwest::Client::new(),
-            base_url: DEFAULT_BASE_URL.to_string(),
-        }
+        Self::with_base_url(DEFAULT_BASE_URL)
     }
 
-    #[cfg(test)]
     pub(crate) fn with_base_url(base_url: impl Into<String>) -> Self {
+        let http = reqwest::Client::builder()
+            .user_agent(USER_AGENT)
+            .build()
+            .expect("reqwest client builds");
         Self {
-            http: reqwest::Client::new(),
+            http,
             base_url: base_url.into(),
         }
     }
