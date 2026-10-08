@@ -9,6 +9,11 @@ Read `docs/README.md` inside that installed package first, then read the relevan
 This block is written and re-added by `turbo` before repository-scoped commands when an AI agent is detected. In the Turborepo source repository, its template is defined in `crates/turborepo-cli/src/cli/agent_guidance.rs`. Removing the managed block while updates are enabled means a later qualifying invocation will add it again. Set `"agentGuidance": false` in the root `turbo.json` or `turbo.jsonc` to opt out; this does not remove an existing block. Keep the block committed with your work to avoid an uncommitted change on the next agent invocation.
 <!-- END:turborepo-agent-rules -->
 
+# Code style
+
+- Name TypeScript and React files in lower-kebab-case (e.g. `storage-settings.tsx`, `folder-browser.tsx`, `icon-input.tsx`). The export keeps its own casing — components stay PascalCase (`StorageSettings`), hooks stay camelCase (`useStashConnection`); only the filename is kebab-case.
+- Organize app code by feature: `features/<feature>/` holds that feature's `api.ts`, components, hooks, and types, with nested subfeatures (e.g. `features/settings/storage/`) and a `components/` subfolder for presentational pieces. Put cross-feature helpers under `shared/`.
+
 # Committing
 
 - Never commit changes without asking first. Always get explicit confirmation before running `git commit`.

@@ -13,6 +13,9 @@ target/
 # Tauri
 apps/desktop/src-tauri/target/
 
+# Design prototypes
+.design/
+
 # Env
 .env
 .env.local
