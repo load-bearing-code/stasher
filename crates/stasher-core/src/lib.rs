@@ -35,6 +35,14 @@ impl AppCore {
                     message: err.to_string(),
                 },
             },
+            // TODO(step 4): wire these up to a real StashClient.
+            HostRequest::GetStatus
+            | HostRequest::LookupProfile { .. }
+            | HostRequest::SearchPerformers { .. }
+            | HostRequest::LinkPerformer { .. }
+            | HostRequest::ImportPerformer { .. } => HostResponse::Error {
+                message: "not yet implemented".into(),
+            },
         }
     }
 }

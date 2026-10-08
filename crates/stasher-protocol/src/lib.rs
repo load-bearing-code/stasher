@@ -64,9 +64,59 @@ pub struct StashJob {
     pub metadata: StashMetadata,
 }
 
+/// Connection details for a self-hosted Stash instance, persisted by the
+/// desktop app (see `apps/desktop/src-tauri/src/config.rs`).
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct StashConfig {
+    pub stash_url: String,
+    pub api_key: String,
+}
+
+/// A creator profile detected on a supported site (e.g. a Fansly profile
+/// page), before it's known whether a matching Stash performer exists.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct SiteProfile {
+    pub site: String,
+    pub username: String,
+    pub profile_url: String,
+    pub display_name: Option<String>,
+    pub photo_url: Option<String>,
+    pub remote_id: Option<String>,
+}
+
+/// A performer as known to Stash.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct Performer {
+    pub id: String,
+    pub name: String,
+    pub urls: Vec<String>,
+    pub image_path: Option<String>,
+    pub alias_list: Vec<String>,
+    pub scene_count: i32,
+}
+
+/// A possible-but-unconfirmed match surfaced alongside an exact lookup, with
+/// the reason it was suggested so the UI can explain itself (e.g. "Similar
+/// name · no shared URLs").
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct PerformerCandidate {
+    pub performer: Performer,
+    pub shared_urls: bool,
+    pub name_similar: bool,
+    pub matched_alias: Option<String>,
+}
+
 /// Messages sent from the extension, through `stasher-host`, to the Tauri app.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub enum HostRequest {
     /// Tracer-bullet round trip: proves extension -> host -> socket -> app -> back.
@@ -76,16 +126,62 @@ pub enum HostRequest {
     SubmitJob {
         job: StashJob,
     },
+    /// Is the desktop app running and is its configured Stash reachable?
+    GetStatus,
+    /// Detected a profile on a supported site; look up an exact Stash match
+    /// plus any fuzzy candidates.
+    LookupProfile {
+        site: String,
+        username: String,
+        profile_url: String,
+    },
+    /// Free-text performer search (the popup's "search for someone else").
+    SearchPerformers {
+        query: String,
+    },
+    /// Attach a profile URL to an existing performer instead of creating one.
+    LinkPerformer {
+        performer_id: String,
+        profile_url: String,
+    },
+    /// Create a new Stash performer from a detected profile.
+    ImportPerformer {
+        profile: SiteProfile,
+    },
 }
 
 /// Messages sent from the Tauri app, through `stasher-host`, back to the extension.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub enum HostResponse {
-    Pong { nonce: String },
-    JobAccepted { id: String },
-    Error { message: String },
+    Pong {
+        nonce: String,
+    },
+    JobAccepted {
+        id: String,
+    },
+    Error {
+        message: String,
+    },
+    Status {
+        stash_url: Option<String>,
+        stash_reachable: bool,
+    },
+    ProfileLookup {
+        profile: SiteProfile,
+        exact_match: Option<Performer>,
+        candidates: Vec<PerformerCandidate>,
+    },
+    PerformerSearch {
+        candidates: Vec<PerformerCandidate>,
+    },
+    PerformerLinked {
+        performer: Performer,
+    },
+    PerformerCreated {
+        performer: Performer,
+    },
 }
 
 #[cfg(test)]

@@ -1,4 +1,8 @@
 export type { HostRequest } from "./generated/HostRequest";
 export type { HostResponse } from "./generated/HostResponse";
+export type { Performer } from "./generated/Performer";
+export type { PerformerCandidate } from "./generated/PerformerCandidate";
+export type { SiteProfile } from "./generated/SiteProfile";
+export type { StashConfig } from "./generated/StashConfig";
 export type { StashJob } from "./generated/StashJob";
 export type { StashMetadata } from "./generated/StashMetadata";
