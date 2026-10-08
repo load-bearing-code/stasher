@@ -3,11 +3,13 @@ import type { Performer } from "./Performer";
 import type { PerformerCandidate } from "./PerformerCandidate";
 import type { PostDetails } from "./PostDetails";
 import type { SiteProfile } from "./SiteProfile";
+import type { SourceStatus } from "./SourceStatus";
+import type { SourcesConfig } from "./SourcesConfig";
 
 /**
  * Messages sent from the Tauri app, through `stasher-host`, back to the extension.
  */
-export type HostResponse = { "type": "pong", nonce: string, } | { "type": "jobAccepted", id: string, } | { "type": "error", message: string, } | { "type": "status", stashUrl: string | null, stashReachable: boolean, } | { "type": "profileLookup", profile: SiteProfile, exactMatch: Performer | null, candidates: Array<PerformerCandidate>, } | { "type": "postLookup", postUrl: string, inStash: boolean, 
+export type HostResponse = { "type": "pong", nonce: string, } | { "type": "jobAccepted", id: string, } | { "type": "error", message: string, } | { "type": "status", stashUrl: string | null, stashReachable: boolean, } | { "type": "sourcesConfig", config: SourcesConfig, } | { "type": "sourceStatusReported", status: SourceStatus, } | { "type": "profileLookup", profile: SiteProfile, exactMatch: Performer | null, candidates: Array<PerformerCandidate>, } | { "type": "postLookup", postUrl: string, inStash: boolean, 
 /**
  * Only populated when the post isn't in Stash and the site lookup
  * succeeded.

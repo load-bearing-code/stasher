@@ -1,4 +1,4 @@
-import type { SourcesConfig } from "@stasher/protocol";
+import type { SourceStatus, SourcesConfig } from "@stasher/protocol";
 import { invoke } from "@tauri-apps/api/core";
 
 /**
@@ -17,6 +17,10 @@ export function getExtensionStatus(): Promise<ExtensionStatus> {
 
 export function getSourcesConfig(): Promise<SourcesConfig | null> {
   return invoke<SourcesConfig | null>("get_sources_config");
+}
+
+export function getSourceStatuses(): Promise<SourceStatus[]> {
+  return invoke<SourceStatus[]>("get_source_statuses");
 }
 
 export function setSourcesConfig(config: SourcesConfig): Promise<void> {

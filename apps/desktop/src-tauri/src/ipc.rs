@@ -54,10 +54,11 @@ async fn handle_connection(
             Ok(bytes) => bytes,
             Err(_) => return,
         };
-        last_seen.store(now_millis(), Ordering::Relaxed);
-
         let response = match serde_json::from_slice::<HostRequest>(&request_bytes) {
-            Ok(request) => core.handle(request).await,
+            Ok(request) => {
+                last_seen.store(now_millis(), Ordering::Relaxed);
+                core.handle(request).await
+            }
             Err(err) => HostResponse::Error {
                 message: format!("invalid request: {err}"),
             },

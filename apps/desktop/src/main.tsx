@@ -19,7 +19,6 @@ const TABS: {
 
 function App() {
   const [active, setActive] = useState("storage");
-  const Panel = TABS.find((tab) => tab.id === active)?.panel ?? StorageSettings;
 
   return (
     <main className="glass-thick flex h-svh flex-col overflow-hidden text-sm">
@@ -49,11 +48,13 @@ function App() {
           </button>
         ))}
       </nav>
-      <div className="flex-1 overflow-y-auto overscroll-none">
-        <div className="mx-auto w-full max-w-xl px-5 py-[18px]">
-          <Panel />
+      {TABS.map(({ id, panel: Panel }) => (
+        <div key={id} hidden={active !== id} className="flex-1 overflow-y-auto overscroll-none">
+          <div className="mx-auto w-full max-w-xl px-5 py-[18px]">
+            <Panel />
+          </div>
         </div>
-      </div>
+      ))}
     </main>
   );
 }

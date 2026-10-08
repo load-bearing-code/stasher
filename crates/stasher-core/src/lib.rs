@@ -20,11 +20,18 @@ pub use stash::{
     test_connection, ConfiguredStashClient, GraphqlStashClient, LoggingStashClient, StashClient,
 };
 
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use stasher_protocol::{
-    FileLayoutConfig, HostRequest, HostResponse, Performer, SiteProfile, StashConfig,
+    FileLayoutConfig, HostRequest, HostResponse, Performer, SiteProfile, SourceAccount,
+    SourceSessionState, SourceStatus, SourcesConfig, StashConfig,
 };
+
+/// Sanitized, runtime-only status reported by browser sources. This state is
+/// shared with the desktop UI but is never written to configuration files.
+pub type SourceStatuses = Arc<RwLock<HashMap<String, SourceStatus>>>;
 
 /// Wires the capability traits to the protocol's request/response pair. This
 /// is the one place that knows how a `HostRequest` turns into work.
@@ -41,9 +48,137 @@ pub struct AppCore {
     /// empty template) falls back to the legacy `fansly/<id>-<n>` layout.
     pub file_layout: Arc<RwLock<Option<FileLayoutConfig>>>,
     pub fansly: Arc<FanslyClient>,
+    pub source_statuses: SourceStatuses,
+    pub sources_config: Arc<RwLock<Option<SourcesConfig>>>,
 }
 
 impl AppCore {
+    fn now_millis() -> f64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_millis() as f64)
+            .unwrap_or(0.0)
+    }
+
+    fn empty_source_status(site: &str) -> SourceStatus {
+        SourceStatus {
+            site: site.to_string(),
+            session_state: SourceSessionState::Unknown,
+            account: None,
+            performers_synced: None,
+            session_checked_at_ms: None,
+        }
+    }
+
+    fn source_host(site: &str) -> Option<&'static str> {
+        match site {
+            "fansly" => Some("https://fansly.com/"),
+            _ => None,
+        }
+    }
+
+    fn sources_config(&self) -> SourcesConfig {
+        self.sources_config
+            .read()
+            .expect("sources config lock poisoned")
+            .clone()
+            .unwrap_or_default()
+    }
+
+    fn source_enabled(&self, site: &str) -> bool {
+        !self
+            .sources_config()
+            .disabled_sites
+            .iter()
+            .any(|disabled| disabled == site)
+    }
+
+    pub fn current_source_statuses(&self) -> Vec<SourceStatus> {
+        self.source_statuses
+            .read()
+            .expect("source statuses lock poisoned")
+            .values()
+            .cloned()
+            .collect()
+    }
+
+    pub fn clear_source_session(&self, site: &str) {
+        let mut statuses = self
+            .source_statuses
+            .write()
+            .expect("source statuses lock poisoned");
+        let status = statuses
+            .entry(site.to_string())
+            .or_insert_with(|| Self::empty_source_status(site));
+        status.session_state = SourceSessionState::Unknown;
+        status.account = None;
+        status.session_checked_at_ms = None;
+    }
+
+    /// Refreshes the Stash performer count without changing browser session
+    /// state. Count failures remain `None`, never a fabricated zero.
+    pub async fn refresh_source_status(&self, site: &str) -> Result<SourceStatus, CoreError> {
+        let host = Self::source_host(site)
+            .ok_or_else(|| CoreError::Stash(format!("unsupported site: {site}")))?;
+        let performers_synced = self.stash.count_performers_by_url(host).await.ok();
+        let mut statuses = self
+            .source_statuses
+            .write()
+            .expect("source statuses lock poisoned");
+        let status = statuses
+            .entry(site.to_string())
+            .or_insert_with(|| Self::empty_source_status(site));
+        status.performers_synced = performers_synced;
+        Ok(status.clone())
+    }
+
+    async fn report_source_status(
+        &self,
+        site: &str,
+        reported_state: SourceSessionState,
+        auth_token: Option<String>,
+    ) -> Result<SourceStatus, CoreError> {
+        Self::source_host(site)
+            .ok_or_else(|| CoreError::Stash(format!("unsupported site: {site}")))?;
+        if !self.source_enabled(site) {
+            return Err(CoreError::Stash(format!("source is disabled: {site}")));
+        }
+
+        let (session_state, account) = match (reported_state, auth_token) {
+            (SourceSessionState::Unknown, _) => (SourceSessionState::Unknown, None),
+            (SourceSessionState::SignedOut, _) => (SourceSessionState::SignedOut, None),
+            (SourceSessionState::SignedIn, Some(token)) => {
+                match self.fansly.fetch_authenticated_account(&token).await {
+                    Ok(Some(profile)) => (
+                        SourceSessionState::SignedIn,
+                        Some(SourceAccount {
+                            id: profile.remote_id.unwrap_or_default(),
+                            username: profile.username,
+                            display_name: profile.display_name,
+                        }),
+                    ),
+                    Ok(None) => (SourceSessionState::SignedOut, None),
+                    Err(_) => (SourceSessionState::Unknown, None),
+                }
+            }
+            (SourceSessionState::SignedIn, None) => (SourceSessionState::Unknown, None),
+        };
+
+        {
+            let mut statuses = self
+                .source_statuses
+                .write()
+                .expect("source statuses lock poisoned");
+            let status = statuses
+                .entry(site.to_string())
+                .or_insert_with(|| Self::empty_source_status(site));
+            status.session_state = session_state;
+            status.account = account;
+            status.session_checked_at_ms = Some(Self::now_millis());
+        }
+        self.refresh_source_status(site).await
+    }
+
     fn stash_config(&self) -> Option<StashConfig> {
         self.stash_config
             .read()
@@ -187,6 +322,24 @@ impl AppCore {
                 HostResponse::Status {
                     stash_url: config.map(|config| config.stash_url),
                     stash_reachable,
+                }
+            }
+            HostRequest::GetSourcesConfig => HostResponse::SourcesConfig {
+                config: self.sources_config(),
+            },
+            HostRequest::ReportSourceStatus {
+                site,
+                session_state,
+                auth_token,
+            } => {
+                match self
+                    .report_source_status(&site, session_state, auth_token)
+                    .await
+                {
+                    Ok(status) => HostResponse::SourceStatusReported { status },
+                    Err(err) => HostResponse::Error {
+                        message: err.to_string(),
+                    },
                 }
             }
             HostRequest::LookupProfile {
@@ -364,6 +517,8 @@ mod tests {
             stash_config: Arc::new(RwLock::new(None)),
             file_layout: Arc::new(RwLock::new(None)),
             fansly: Arc::new(FanslyClient::new()),
+            source_statuses: Arc::new(RwLock::new(HashMap::new())),
+            sources_config: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -473,6 +628,130 @@ mod tests {
             }
             _ => panic!("expected Status"),
         }
+    }
+
+    #[tokio::test]
+    async fn report_source_status_resolves_account_and_synced_performers() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/account/me"))
+            .and(header("authorization", "session-token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "response": { "account": {
+                    "id": "acct-42",
+                    "username": "siennakade",
+                    "displayName": "Sienna Kade"
+                } }
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/graphql"))
+            .and(body_string_contains("findPerformers"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "findPerformers": { "count": 14 } }
+            })))
+            .mount(&server)
+            .await;
+
+        let core = core_with_stash(
+            AppCore {
+                fansly: Arc::new(FanslyClient::with_base_url(server.uri())),
+                ..test_core()
+            },
+            &server,
+        );
+        let response = core
+            .handle(HostRequest::ReportSourceStatus {
+                site: "fansly".into(),
+                session_state: SourceSessionState::SignedIn,
+                auth_token: Some("session-token".into()),
+            })
+            .await;
+
+        match &response {
+            HostResponse::SourceStatusReported { status } => {
+                assert_eq!(status.session_state, SourceSessionState::SignedIn);
+                assert_eq!(status.account.as_ref().unwrap().username, "siennakade");
+                assert_eq!(status.performers_synced, Some(14));
+                assert!(status.session_checked_at_ms.is_some());
+            }
+            other => panic!("expected SourceStatusReported, got {other:?}"),
+        }
+        assert!(!serde_json::to_string(&response)
+            .unwrap()
+            .contains("session-token"));
+        assert_eq!(core.current_source_statuses().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn report_source_status_distinguishes_signed_out_from_lookup_failure() {
+        let signed_out = test_core();
+        let response = signed_out
+            .handle(HostRequest::ReportSourceStatus {
+                site: "fansly".into(),
+                session_state: SourceSessionState::SignedOut,
+                auth_token: None,
+            })
+            .await;
+        assert!(matches!(
+            response,
+            HostResponse::SourceStatusReported {
+                status: SourceStatus {
+                    session_state: SourceSessionState::SignedOut,
+                    ..
+                }
+            }
+        ));
+
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/account/me"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&server)
+            .await;
+        let unavailable = AppCore {
+            fansly: Arc::new(FanslyClient::with_base_url(server.uri())),
+            ..test_core()
+        };
+        let response = unavailable
+            .handle(HostRequest::ReportSourceStatus {
+                site: "fansly".into(),
+                session_state: SourceSessionState::SignedIn,
+                auth_token: Some("session-token".into()),
+            })
+            .await;
+        assert!(matches!(
+            response,
+            HostResponse::SourceStatusReported {
+                status: SourceStatus {
+                    session_state: SourceSessionState::Unknown,
+                    ..
+                }
+            }
+        ));
+    }
+
+    #[tokio::test]
+    async fn report_source_status_rejects_disabled_sources() {
+        let core = AppCore {
+            sources_config: Arc::new(RwLock::new(Some(SourcesConfig {
+                disabled_sites: vec!["fansly".into()],
+            }))),
+            ..test_core()
+        };
+        let response = core
+            .handle(HostRequest::ReportSourceStatus {
+                site: "fansly".into(),
+                session_state: SourceSessionState::SignedIn,
+                auth_token: Some("must-not-be-used".into()),
+            })
+            .await;
+
+        assert!(matches!(
+            response,
+            HostResponse::Error { message } if message.contains("disabled")
+        ));
     }
 
     #[tokio::test]
@@ -904,6 +1183,8 @@ mod tests {
             stash_config,
             file_layout: Arc::new(RwLock::new(None)),
             fansly: Arc::new(FanslyClient::with_base_url(fansly_server.uri())),
+            source_statuses: Arc::new(RwLock::new(HashMap::new())),
+            sources_config: Arc::new(RwLock::new(None)),
         };
 
         let response = core

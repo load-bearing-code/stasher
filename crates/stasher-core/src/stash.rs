@@ -1,4 +1,5 @@
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
 
 use async_trait::async_trait;
 use serde::de::DeserializeOwned;
@@ -9,6 +10,8 @@ use stasher_protocol::{
 };
 
 use crate::error::CoreError;
+
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// Writes scene metadata to Stash, and reconciles detected site profiles
 /// (e.g. a Fansly page) against Stash performers.
@@ -37,6 +40,9 @@ pub trait StashClient: Send + Sync {
 
     /// Whether any Stash scene has `post_url` among its URLs.
     async fn post_exists(&self, post_url: &str) -> Result<bool, CoreError>;
+
+    /// Counts performers whose URLs contain a supported site's canonical host.
+    async fn count_performers_by_url(&self, url: &str) -> Result<u32, CoreError>;
 
     /// Free-text performer search (the popup's manual "search for someone
     /// else" fallback).
@@ -121,6 +127,10 @@ impl StashClient for ConfiguredStashClient {
 
     async fn post_exists(&self, post_url: &str) -> Result<bool, CoreError> {
         self.client()?.post_exists(post_url).await
+    }
+
+    async fn count_performers_by_url(&self, url: &str) -> Result<u32, CoreError> {
+        self.client()?.count_performers_by_url(url).await
     }
 
     async fn search_performers(&self, query: &str) -> Result<Vec<PerformerCandidate>, CoreError> {
@@ -208,8 +218,12 @@ struct VersionInfo {
 /// valid API key, by running Stash's `version` query. Used by the desktop
 /// app's "Test connection" settings action.
 pub async fn test_connection(config: &StashConfig) -> Result<(), CoreError> {
+    let http = reqwest::Client::builder()
+        .timeout(REQUEST_TIMEOUT)
+        .build()
+        .expect("reqwest client builds");
     post_graphql::<VersionData>(
-        &reqwest::Client::new(),
+        &http,
         config,
         "{ version { version } }",
         json!({}),
@@ -252,6 +266,17 @@ struct FindPerformersData {
 #[derive(Debug, Deserialize)]
 struct FindPerformersResult {
     performers: Vec<GqlPerformer>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CountPerformersData {
+    #[serde(rename = "findPerformers")]
+    find_performers: CountPerformersResult,
+}
+
+#[derive(Debug, Deserialize)]
+struct CountPerformersResult {
+    count: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -349,7 +374,10 @@ pub struct GraphqlStashClient {
 impl GraphqlStashClient {
     pub fn new(config: StashConfig) -> Self {
         Self {
-            http: reqwest::Client::new(),
+            http: reqwest::Client::builder()
+                .timeout(REQUEST_TIMEOUT)
+                .build()
+                .expect("reqwest client builds"),
             config,
         }
     }
@@ -568,6 +596,21 @@ impl StashClient for GraphqlStashClient {
         Ok(data.find_scenes.count > 0)
     }
 
+    async fn count_performers_by_url(&self, url: &str) -> Result<u32, CoreError> {
+        let data: CountPerformersData = self
+            .request(
+                "query($performer_filter: PerformerFilterType, $filter: FindFilterType) { \
+                    findPerformers(performer_filter: $performer_filter, filter: $filter) { count } \
+                }",
+                json!({
+                    "performer_filter": { "url": { "value": url, "modifier": "INCLUDES" } },
+                    "filter": { "per_page": 1 },
+                }),
+            )
+            .await?;
+        Ok(data.find_performers.count)
+    }
+
     async fn search_performers(&self, query: &str) -> Result<Vec<PerformerCandidate>, CoreError> {
         let performers = self.search(query).await?;
         Ok(performers
@@ -678,6 +721,11 @@ impl StashClient for LoggingStashClient {
     async fn post_exists(&self, post_url: &str) -> Result<bool, CoreError> {
         tracing::info!(post_url, "stash: post_exists (stub)");
         Ok(false)
+    }
+
+    async fn count_performers_by_url(&self, url: &str) -> Result<u32, CoreError> {
+        tracing::info!(url, "stash: count_performers_by_url (stub)");
+        Ok(0)
     }
 
     async fn search_performers(&self, query: &str) -> Result<Vec<PerformerCandidate>, CoreError> {
@@ -846,6 +894,33 @@ mod tests {
 
         let client = client_for(&server).await;
         assert!(!client.post_exists("https://fansly.com/post/42").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn count_performers_by_url_uses_an_includes_filter() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/graphql"))
+            .and(body_partial_json(json!({
+                "variables": { "performer_filter": { "url": {
+                    "value": "https://fansly.com/",
+                    "modifier": "INCLUDES",
+                } } }
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "findPerformers": { "count": 14 } }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = client_for(&server).await;
+        assert_eq!(
+            client
+                .count_performers_by_url("https://fansly.com/")
+                .await
+                .unwrap(),
+            14
+        );
     }
 
     #[tokio::test]

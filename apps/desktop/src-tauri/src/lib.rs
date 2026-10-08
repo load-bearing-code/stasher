@@ -7,11 +7,11 @@ use std::sync::{Arc, RwLock};
 use ipc::ExtensionLastSeen;
 use stasher_core::{
     AppCore, ConfiguredStashClient, FanslyClient, LocalFsWriter, Nfs3Writer, NoopFfmpegProcessor,
-    SwitchableWriter,
+    SourceStatuses, SwitchableWriter,
 };
 use stasher_protocol::{
-    FileLayoutConfig, HostRequest, HostResponse, NfsExport, NfsShareConfig, SourcesConfig,
-    StashConfig,
+    FileLayoutConfig, HostRequest, HostResponse, NfsExport, NfsShareConfig, SourceStatus,
+    SourcesConfig, StashConfig,
 };
 use tauri::Manager;
 
@@ -70,7 +70,11 @@ async fn test_stash_connection(config: StashConfig) -> Result<(), String> {
 
 #[tauri::command]
 fn get_nfs_share(state: tauri::State<'_, NfsState>) -> Option<NfsShareConfig> {
-    state.config.read().expect("nfs config lock poisoned").clone()
+    state
+        .config
+        .read()
+        .expect("nfs config lock poisoned")
+        .clone()
 }
 
 #[tauri::command]
@@ -143,10 +147,20 @@ fn get_sources_config(state: tauri::State<'_, SharedSourcesConfig>) -> Option<So
 fn set_sources_config(
     app: tauri::AppHandle,
     state: tauri::State<'_, SharedSourcesConfig>,
+    core: tauri::State<'_, Arc<AppCore>>,
     config: SourcesConfig,
 ) -> Result<(), String> {
+    let was_disabled = state
+        .read()
+        .expect("sources config lock poisoned")
+        .as_ref()
+        .is_some_and(|current| current.disabled_sites.iter().any(|site| site == "fansly"));
+    let is_disabled = config.disabled_sites.iter().any(|site| site == "fansly");
     config::save_sources(&app, &config)?;
     *state.write().expect("sources config lock poisoned") = Some(config);
+    if was_disabled != is_disabled {
+        core.clear_source_session("fansly");
+    }
     Ok(())
 }
 
@@ -156,6 +170,15 @@ fn get_extension_status(last_seen: tauri::State<'_, ExtensionLastSeen>) -> Exten
     ExtensionStatus {
         last_seen_ms: (ms != 0).then_some(ms),
     }
+}
+
+#[tauri::command]
+async fn get_source_statuses(
+    core: tauri::State<'_, Arc<AppCore>>,
+) -> Result<Vec<SourceStatus>, String> {
+    let core = core.inner().clone();
+    let _ = core.refresh_source_status("fansly").await;
+    Ok(core.current_source_statuses())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -177,7 +200,8 @@ pub fn run() {
             set_file_layout,
             get_sources_config,
             set_sources_config,
-            get_extension_status
+            get_extension_status,
+            get_source_statuses
         ])
         .setup(|app| {
             let stash_dir = app.path().app_local_data_dir()?.join("stash");
@@ -188,6 +212,7 @@ pub fn run() {
             let sources_config: SharedSourcesConfig =
                 Arc::new(RwLock::new(config::load_sources(app.handle())));
             let extension_last_seen: ExtensionLastSeen = Arc::new(AtomicU64::new(0));
+            let source_statuses: SourceStatuses = Arc::new(RwLock::new(Default::default()));
 
             let writer = Arc::new(SwitchableWriter::new(LocalFsWriter::new(stash_dir)));
             let nfs_config = config::load_nfs(app.handle());
@@ -209,6 +234,8 @@ pub fn run() {
                 stash_config: stash_config.clone(),
                 file_layout: file_layout.clone(),
                 fansly: Arc::new(FanslyClient::new().with_cache_file(fansly_cache)),
+                source_statuses,
+                sources_config: sources_config.clone(),
             });
             app.manage(core.clone());
             ipc::spawn_socket_server(core, extension_last_seen.clone());

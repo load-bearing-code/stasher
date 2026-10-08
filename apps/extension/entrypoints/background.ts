@@ -1,5 +1,14 @@
 import { matchPost, matchProfile } from "@stasher/core";
 import type { HostRequest, HostResponse } from "@stasher/protocol";
+import {
+  FANSLY_SESSION_CHANGED,
+  isFanslyUrl,
+  readFanslySessionFromTab,
+} from "@/features/sources/fansly-session";
+
+const HEARTBEAT_MS = 60_000;
+const SOURCE_REFRESH_MS = 5 * 60_000;
+const STATUS_REQUEST_TIMEOUT_MS = 60_000;
 
 /**
  * Bridges extension pages to the desktop app. Native messaging can't be used
@@ -37,8 +46,13 @@ export default defineBackground(() => {
 
     inFlight = true;
     const nativePort = getPort();
+    let settled = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
 
     const settle = (response: HostResponse) => {
+      if (settled) return;
+      settled = true;
+      if (timeout !== undefined) clearTimeout(timeout);
       nativePort.onMessage.removeListener(onResponse);
       nativePort.onDisconnect.removeListener(onDisconnect);
       inFlight = false;
@@ -48,16 +62,100 @@ export default defineBackground(() => {
     const onResponse = (response: HostResponse) => settle(response);
     const onDisconnect = () =>
       settle({ type: "error", message: "Stasher desktop app isn't running." });
+    const onTimeout = () => {
+      port = undefined;
+      nativePort.disconnect();
+      settle({ type: "error", message: "Stasher desktop app didn't respond." });
+    };
 
     nativePort.onMessage.addListener(onResponse);
     nativePort.onDisconnect.addListener(onDisconnect);
-    nativePort.postMessage(next.message);
+    if (!settled) {
+      if (
+        next.message.type === "ping" ||
+        next.message.type === "getStatus" ||
+        next.message.type === "getSourcesConfig" ||
+        next.message.type === "reportSourceStatus"
+      ) {
+        timeout = setTimeout(onTimeout, STATUS_REQUEST_TIMEOUT_MS);
+      }
+      nativePort.postMessage(next.message);
+    }
   }
 
   function enqueue(message: HostRequest): Promise<HostResponse> {
     return new Promise((resolve) => {
       queue.push({ message, resolve });
       pump();
+    });
+  }
+
+  let sourceReportInFlight = false;
+  let sourceReportPending = false;
+  let pendingSourceTabId: number | undefined;
+
+  async function sourceEnabled(site: string): Promise<boolean> {
+    const response = await enqueue({ type: "getSourcesConfig" });
+    return response.type === "sourcesConfig" && !response.config.disabledSites.includes(site);
+  }
+
+  async function reportFanslySession(tabId?: number) {
+    if (sourceReportInFlight) {
+      sourceReportPending = true;
+      pendingSourceTabId = tabId;
+      return;
+    }
+    sourceReportInFlight = true;
+    try {
+      if (!(await sourceEnabled("fansly"))) return;
+
+      let sourceTabId = tabId;
+      if (sourceTabId === undefined) {
+        const [tab] = await browser.tabs.query({ url: "*://*.fansly.com/*" });
+        sourceTabId = tab?.id;
+      }
+      if (sourceTabId === undefined) {
+        await enqueue({
+          type: "reportSourceStatus",
+          site: "fansly",
+          sessionState: "unknown",
+          authToken: null,
+        });
+        return;
+      }
+
+      // A missing content script means the tab is not ready. A successful
+      // reply distinguishes a verified logout from an unreadable session.
+      const session = await readFanslySessionFromTab(sourceTabId).catch(() => ({
+        state: "unknown" as const,
+        token: null,
+      }));
+      await enqueue({
+        type: "reportSourceStatus",
+        site: "fansly",
+        sessionState: session.state,
+        authToken: session.token,
+      });
+    } catch {
+      // The next tab completion, session change, or periodic refresh retries.
+    } finally {
+      sourceReportInFlight = false;
+      if (sourceReportPending) {
+        const pendingTabId = pendingSourceTabId;
+        sourceReportPending = false;
+        pendingSourceTabId = undefined;
+        void reportFanslySession(pendingTabId);
+      }
+    }
+  }
+
+  let heartbeatPending = false;
+
+  function heartbeat() {
+    if (heartbeatPending) return;
+    heartbeatPending = true;
+    void enqueue({ type: "ping", nonce: `heartbeat-${Date.now()}` }).finally(() => {
+      heartbeatPending = false;
     });
   }
 
@@ -166,10 +264,14 @@ export default defineBackground(() => {
     if (changeInfo.url || changeInfo.status === "complete") {
       void refreshBadge(tabId, tab.url);
     }
+    if (changeInfo.status === "complete" && isFanslyUrl(tab.url)) {
+      void reportFanslySession(tabId);
+    }
   });
 
   browser.tabs.onRemoved.addListener((tabId) => {
     results.delete(tabId);
+    void reportFanslySession();
   });
 
   browser.tabs.onActivated.addListener(async ({ tabId }) => {
@@ -177,30 +279,42 @@ export default defineBackground(() => {
     if (tab) void refreshBadge(tabId, tab.url);
   });
 
-  browser.runtime.onMessage.addListener((message: HostRequest, _sender, sendResponse) => {
-    if (message.type === "lookupProfile" && !message.refresh) {
-      const cached = getCachedLookup(message.profileUrl);
+  browser.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
+    if (
+      typeof message === "object" &&
+      message !== null &&
+      "type" in message &&
+      message.type === FANSLY_SESSION_CHANGED
+    ) {
+      if (sender.tab?.id !== undefined) void reportFanslySession(sender.tab.id);
+      return false;
+    }
+    if (typeof message !== "object" || message === null || !("type" in message)) return false;
+
+    const request = message as HostRequest;
+    if (request.type === "lookupProfile" && !request.refresh) {
+      const cached = getCachedLookup(request.profileUrl);
       if (cached) {
         sendResponse(cached);
         return false;
       }
     }
-    if (message.type === "lookupPost") {
-      const cached = getCachedLookup(message.postUrl);
+    if (request.type === "lookupPost") {
+      const cached = getCachedLookup(request.postUrl);
       if (cached) {
         sendResponse(cached);
         return false;
       }
     }
 
-    void enqueue(message).then(async (response) => {
+    void enqueue(request).then(async (response) => {
       sendResponse(response);
       if (response.type === "performerCreated" || response.type === "performerLinked") {
         lookupCache.clear();
-      } else if (message.type === "lookupProfile" && response.type === "profileLookup") {
-        lookupCache.set(message.profileUrl, { response, at: Date.now() });
-      } else if (message.type === "lookupPost" && response.type === "postLookup") {
-        lookupCache.set(message.postUrl, { response, at: Date.now() });
+      } else if (request.type === "lookupProfile" && response.type === "profileLookup") {
+        lookupCache.set(request.profileUrl, { response, at: Date.now() });
+      } else if (request.type === "lookupPost" && response.type === "postLookup") {
+        lookupCache.set(request.postUrl, { response, at: Date.now() });
       }
       const state: BadgeState | undefined =
         response.type === "performerCreated" || response.type === "performerLinked"
@@ -224,4 +338,9 @@ export default defineBackground(() => {
     });
     return true; // keep the message channel open for the async response
   });
+
+  heartbeat();
+  void reportFanslySession();
+  setInterval(heartbeat, HEARTBEAT_MS);
+  setInterval(() => void reportFanslySession(), SOURCE_REFRESH_MS);
 });

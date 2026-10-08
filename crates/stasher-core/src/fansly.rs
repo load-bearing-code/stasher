@@ -12,6 +12,7 @@ use stasher_protocol::{MediaKind, PostDetails, SiteProfile};
 use crate::error::CoreError;
 
 const DEFAULT_BASE_URL: &str = "https://apiv3.fansly.com";
+const SESSION_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Fansly's API rejects requests with no `User-Agent` (403), so send a
 /// browser-like one. The value doesn't need to match a real browser version;
@@ -281,6 +282,31 @@ impl FanslyClient {
         Ok(account_to_profile(account, &profile_url))
     }
 
+    /// Resolves a browser session token through Fansly's current-account
+    /// endpoint. Unauthorized sessions are signed out (`None`); other request
+    /// failures remain errors so callers do not misreport an outage as logout.
+    pub async fn fetch_authenticated_account(
+        &self,
+        auth_token: &str,
+    ) -> Result<Option<SiteProfile>, CoreError> {
+        let url = format!("{}/api/v1/account/me", self.base_url);
+        let response = self
+            .http
+            .get(url)
+            .query(&[("ngsw-bypass", "true")])
+            .header("authorization", auth_token)
+            .timeout(SESSION_REQUEST_TIMEOUT)
+            .send()
+            .await?;
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            return Ok(None);
+        }
+        let envelope: FanslyMeEnvelope = response.error_for_status()?.json().await?;
+        let account = envelope.response.account;
+        let profile_url = format!("https://fansly.com/{}", account.username);
+        Ok(Some(account_to_profile(account, &profile_url)))
+    }
+
     /// GETs `/api/v1/account` with the given query (`usernames=` or `ids=`)
     /// and returns the first account, if any.
     async fn fetch_account(
@@ -526,6 +552,16 @@ struct FanslyEnvelope {
 }
 
 #[derive(Debug, Deserialize)]
+struct FanslyMeEnvelope {
+    response: FanslyMeResponse,
+}
+
+#[derive(Debug, Deserialize)]
+struct FanslyMeResponse {
+    account: FanslyAccount,
+}
+
+#[derive(Debug, Deserialize)]
 struct FanslyAccount {
     id: String,
     username: String,
@@ -550,7 +586,7 @@ struct FanslyMediaLocation {
 
 #[cfg(test)]
 mod tests {
-    use wiremock::matchers::{method, path, query_param};
+    use wiremock::matchers::{header, method, path, query_param};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use super::*;
@@ -688,6 +724,72 @@ mod tests {
         );
         assert_eq!(profile.remote_id.as_deref(), Some("123"));
         assert_eq!(profile.profile_url, "https://fansly.com/someuser");
+    }
+
+    #[tokio::test]
+    async fn fetch_authenticated_account_maps_identity_without_caching_the_token() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/account/me"))
+            .and(query_param("ngsw-bypass", "true"))
+            .and(header("authorization", "session-token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "success": true,
+                "response": {
+                    "account": {
+                        "id": "123",
+                        "username": "SomeUser",
+                        "displayName": "Some User"
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = FanslyClient::with_base_url(server.uri());
+        let profile = client
+            .fetch_authenticated_account("session-token")
+            .await
+            .unwrap()
+            .expect("signed-in account");
+
+        assert_eq!(profile.remote_id.as_deref(), Some("123"));
+        assert_eq!(profile.username, "SomeUser");
+        assert_eq!(profile.display_name.as_deref(), Some("Some User"));
+        assert_eq!(profile.profile_url, "https://fansly.com/SomeUser");
+    }
+
+    #[tokio::test]
+    async fn fetch_authenticated_account_treats_unauthorized_as_signed_out() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/account/me"))
+            .respond_with(ResponseTemplate::new(401))
+            .mount(&server)
+            .await;
+
+        let client = FanslyClient::with_base_url(server.uri());
+        assert!(client
+            .fetch_authenticated_account("expired-token")
+            .await
+            .unwrap()
+            .is_none());
+    }
+
+    #[tokio::test]
+    async fn fetch_authenticated_account_keeps_forbidden_distinct_from_signed_out() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/account/me"))
+            .respond_with(ResponseTemplate::new(403))
+            .mount(&server)
+            .await;
+
+        let client = FanslyClient::with_base_url(server.uri());
+        assert!(client
+            .fetch_authenticated_account("blocked-token")
+            .await
+            .is_err());
     }
 
     #[tokio::test]

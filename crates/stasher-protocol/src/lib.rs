@@ -107,6 +107,39 @@ pub struct SourcesConfig {
     pub disabled_sites: Vec<String>,
 }
 
+/// Whether a supported site's session was verified through the browser.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub enum SourceSessionState {
+    Unknown,
+    SignedOut,
+    SignedIn,
+}
+
+/// Non-sensitive identity for the account behind a verified site session.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct SourceAccount {
+    pub id: String,
+    pub username: String,
+    pub display_name: Option<String>,
+}
+
+/// Runtime-only status for one source. Credentials are never included here or
+/// persisted; the extension reports them only long enough to verify identity.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct SourceStatus {
+    pub site: String,
+    pub session_state: SourceSessionState,
+    pub account: Option<SourceAccount>,
+    pub performers_synced: Option<u32>,
+    pub session_checked_at_ms: Option<f64>,
+}
+
 /// One export advertised by an NFS server, discovered when the desktop app
 /// polls a typed-in server address.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -221,6 +254,9 @@ pub enum HostRequest {
     },
     /// Is the desktop app running and is its configured Stash reachable?
     GetStatus,
+    /// Which sources are enabled. The extension checks this before reading a
+    /// browser session so disabled sources do not collect credentials.
+    GetSourcesConfig,
     /// Detected a profile on a supported site; look up an exact Stash match
     /// plus any fuzzy candidates.
     LookupProfile {
@@ -246,6 +282,14 @@ pub enum HostRequest {
         post_url: String,
         /// The user's session token for `site`, needed for locked media.
         /// A credential: never log or persist it.
+        auth_token: Option<String>,
+    },
+    /// Reports the browser's current session for a supported source. The
+    /// desktop resolves the token to account identity and immediately drops
+    /// it; the credential is never logged, echoed, or persisted.
+    ReportSourceStatus {
+        site: String,
+        session_state: SourceSessionState,
         auth_token: Option<String>,
     },
     /// Free-text performer search (the popup's "search for someone else").
@@ -283,6 +327,12 @@ pub enum HostResponse {
     Status {
         stash_url: Option<String>,
         stash_reachable: bool,
+    },
+    SourcesConfig {
+        config: SourcesConfig,
+    },
+    SourceStatusReported {
+        status: SourceStatus,
     },
     ProfileLookup {
         profile: SiteProfile,
@@ -336,5 +386,39 @@ mod tests {
             HostRequest::Ping { nonce } => assert_eq!(nonce, "abc"),
             _ => panic!("unexpected variant"),
         }
+    }
+
+    #[test]
+    fn source_status_report_round_trips_without_echoing_the_token() {
+        let req = HostRequest::ReportSourceStatus {
+            site: "fansly".into(),
+            session_state: SourceSessionState::SignedIn,
+            auth_token: Some("secret".into()),
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        let back: HostRequest = serde_json::from_str(&json).unwrap();
+        assert!(matches!(
+            back,
+            HostRequest::ReportSourceStatus {
+                site,
+                session_state: SourceSessionState::SignedIn,
+                auth_token: Some(token)
+            } if site == "fansly" && token == "secret"
+        ));
+
+        let response = HostResponse::SourceStatusReported {
+            status: SourceStatus {
+                site: "fansly".into(),
+                session_state: SourceSessionState::SignedIn,
+                account: Some(SourceAccount {
+                    id: "1".into(),
+                    username: "creator".into(),
+                    display_name: None,
+                }),
+                performers_synced: Some(2),
+                session_checked_at_ms: Some(1.0),
+            },
+        };
+        assert!(!serde_json::to_string(&response).unwrap().contains("secret"));
     }
 }
