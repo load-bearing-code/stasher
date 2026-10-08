@@ -7,7 +7,7 @@ use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
-use stasher_protocol::SiteProfile;
+use stasher_protocol::{MediaKind, PostDetails, SiteProfile};
 
 use crate::error::CoreError;
 
@@ -149,6 +149,51 @@ impl FanslyClient {
         Ok(profile)
     }
 
+    /// Fetches a post's caption and timestamp. The caption becomes the title.
+    pub async fn fetch_post(&self, post_id: &str) -> Result<PostDetails, CoreError> {
+        let url = format!("{}/api/v1/post", self.base_url);
+        let envelope: FanslyPostEnvelope = self
+            .http
+            .get(url)
+            .query(&[("ids", post_id)])
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+
+        let FanslyPosts {
+            posts,
+            account_media,
+        } = envelope.response;
+        let mimetypes: Vec<&str> = account_media
+            .iter()
+            .filter_map(|entry| entry.media.as_ref()?.mimetype.as_deref())
+            .collect();
+        let media_kind = if mimetypes.iter().any(|m| m.starts_with("video/")) {
+            Some(MediaKind::Video)
+        } else if mimetypes.iter().any(|m| m.starts_with("image/")) {
+            Some(MediaKind::Image)
+        } else {
+            None
+        };
+
+        let post = posts
+            .into_iter()
+            .next()
+            .ok_or_else(|| CoreError::Stash(format!("fansly: no post with id '{post_id}'")))?;
+
+        let title = post
+            .content
+            .map(|content| content.trim().to_string())
+            .filter(|content| !content.is_empty());
+        Ok(PostDetails {
+            title,
+            posted_at: post.created_at,
+            media_kind,
+        })
+    }
+
     async fn fetch_profile_uncached(
         &self,
         username: &str,
@@ -226,6 +271,35 @@ fn social_url(social: &serde_json::Value) -> Option<String> {
         .filter_map(|value| value.as_str())
         .find(|value| value.starts_with("http://") || value.starts_with("https://"))
         .map(str::to_string)
+}
+
+#[derive(Debug, Deserialize)]
+struct FanslyPostEnvelope {
+    response: FanslyPosts,
+}
+
+#[derive(Debug, Deserialize)]
+struct FanslyPosts {
+    posts: Vec<FanslyPost>,
+    #[serde(rename = "accountMedia", default)]
+    account_media: Vec<FanslyAccountMedia>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FanslyAccountMedia {
+    media: Option<FanslyMediaFile>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FanslyMediaFile {
+    mimetype: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FanslyPost {
+    content: Option<String>,
+    #[serde(rename = "createdAt")]
+    created_at: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]

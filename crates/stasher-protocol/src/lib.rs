@@ -117,6 +117,25 @@ pub struct PerformerDraft {
     pub image_url: Option<String>,
 }
 
+/// What a supported site says about a post.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct PostDetails {
+    pub title: Option<String>,
+    /// Unix seconds.
+    pub posted_at: Option<u32>,
+    pub media_kind: Option<MediaKind>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub enum MediaKind {
+    Video,
+    Image,
+}
+
 /// A performer as known to Stash.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -175,6 +194,12 @@ pub enum HostRequest {
         post_id: String,
         post_url: String,
     },
+    /// Download a post's media and create a scene for it in Stash.
+    ImportPost {
+        site: String,
+        post_id: String,
+        post_url: String,
+    },
     /// Free-text performer search (the popup's "search for someone else").
     SearchPerformers {
         query: String,
@@ -219,6 +244,9 @@ pub enum HostResponse {
     PostLookup {
         post_url: String,
         in_stash: bool,
+        /// Only populated when the post isn't in Stash and the site lookup
+        /// succeeded.
+        post: Option<PostDetails>,
     },
     PerformerSearch {
         candidates: Vec<PerformerCandidate>,

@@ -39,10 +39,14 @@ export function App() {
 
         {stage.kind === "post" && (
           <PostStatusCard
+            site={stage.site}
+            postId={stage.postId}
             postUrl={stage.postUrl}
             inStash={stage.inStash}
+            post={stage.post}
             refreshing={refreshing}
             onRefresh={() => void refresh()}
+            onError={(message) => setStage({ kind: "error", message })}
           />
         )}
 

@@ -34,7 +34,14 @@ export async function fetchStage(refresh: boolean): Promise<Stage> {
   try {
     const response = await sendHostRequest(request);
     if (response.type === "postLookup") {
-      return { kind: "post", postUrl: response.postUrl, inStash: response.inStash };
+      return {
+        kind: "post",
+        site: detectedPost!.site,
+        postId: detectedPost!.postId,
+        postUrl: response.postUrl,
+        inStash: response.inStash,
+        post: response.post,
+      };
     }
     if (response.type === "profileLookup") {
       return {

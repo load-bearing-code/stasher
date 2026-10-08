@@ -119,7 +119,7 @@ impl AppCore {
             }
             HostRequest::LookupPost {
                 site,
-                post_id: _,
+                post_id,
                 post_url,
             } => {
                 if site != "fansly" {
@@ -127,13 +127,28 @@ impl AppCore {
                         message: format!("unsupported site: {site}"),
                     };
                 }
-                match self.stash.post_exists(&post_url).await {
-                    Ok(in_stash) => HostResponse::PostLookup { post_url, in_stash },
-                    Err(err) => HostResponse::Error {
-                        message: err.to_string(),
-                    },
+                let in_stash = match self.stash.post_exists(&post_url).await {
+                    Ok(in_stash) => in_stash,
+                    Err(err) => {
+                        return HostResponse::Error {
+                            message: err.to_string(),
+                        }
+                    }
+                };
+                let post = if in_stash {
+                    None
+                } else {
+                    self.fansly.fetch_post(&post_id).await.ok()
+                };
+                HostResponse::PostLookup {
+                    post_url,
+                    in_stash,
+                    post,
                 }
             }
+            HostRequest::ImportPost { .. } => HostResponse::Error {
+                message: "Importing posts isn't implemented yet.".into(),
+            },
             HostRequest::SearchPerformers { query } => {
                 match self.stash.search_performers(&query).await {
                     Ok(candidates) => HostResponse::PerformerSearch { candidates },
@@ -286,7 +301,9 @@ mod tests {
             })
             .await;
         match response {
-            HostResponse::PostLookup { post_url, in_stash } => {
+            HostResponse::PostLookup {
+                post_url, in_stash, ..
+            } => {
                 assert_eq!(post_url, "https://fansly.com/post/42");
                 assert!(in_stash);
             }
