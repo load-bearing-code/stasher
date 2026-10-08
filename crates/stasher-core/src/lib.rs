@@ -12,8 +12,8 @@ mod redgifs;
 mod stash;
 
 pub use error::CoreError;
-pub use fansly::{FanslyClient, PostImage};
-pub use ffmpeg::{FfmpegProcessor, NoopFfmpegProcessor};
+pub use fansly::{FanslyClient, PostImage, PostVideo};
+pub use ffmpeg::{FfmpegProcessor, NoopFfmpegProcessor, UnavailableVideoMuxer, VideoMuxer};
 pub use layout::{render_path, MediaName};
 pub use nfs::{LocalFsWriter, NfsWriter};
 pub use nfs_client::{list_exports, Nfs3Writer, SwitchableWriter};
@@ -53,6 +53,8 @@ pub struct AppCore {
     pub redgifs: Arc<RedgifsClient>,
     pub source_statuses: SourceStatuses,
     pub sources_config: Arc<RwLock<Option<SourcesConfig>>>,
+    /// Muxes a Fansly video's separate video/audio tracks into one file.
+    pub muxer: Arc<dyn VideoMuxer>,
 }
 
 impl AppCore {
@@ -213,20 +215,22 @@ impl AppCore {
         Ok((profile, performer))
     }
 
-    /// Downloads the best-resolution copy of each image in a post, filing it
-    /// under the Stash performer the post's creator maps to. The import is
-    /// refused unless that performer already exists, so saved media is always
-    /// tied to a Stash performer record. Returns the files written and the
-    /// performer they were associated with.
-    async fn import_fansly_images(
+    /// Downloads the best-resolution copy of each image and video in a post,
+    /// filing them under the Stash performer the post's creator maps to.
+    /// Videos are muxed from Fansly's separate video/audio tracks before
+    /// being written. The import is refused unless that performer already
+    /// exists, so saved media is always tied to a Stash performer record.
+    /// Returns the files written and the performer they were associated
+    /// with.
+    async fn import_fansly_post(
         &self,
         post_id: &str,
         auth_token: Option<&str>,
     ) -> Result<(u32, Performer), CoreError> {
         let post = self.fansly.fetch_post_import(post_id, auth_token).await?;
-        if post.images.is_empty() {
+        if post.images.is_empty() && post.videos.is_empty() {
             return Err(CoreError::Stash(
-                "this post has no downloadable images".into(),
+                "this post has no downloadable images or video".into(),
             ));
         }
 
@@ -246,7 +250,7 @@ impl AppCore {
 
         let template = self.template();
         let date = post.posted_at.map(layout::unix_to_ymd);
-        let multiple = post.images.len() > 1;
+        let multiple = post.images.len() + post.videos.len() > 1;
         let mut written = 0;
         for (index, image) in post.images.iter().enumerate() {
             let bytes = self.fansly.download(&image.url).await?;
@@ -263,6 +267,31 @@ impl AppCore {
                 multiple,
             );
             self.nfs.write_file(&relative, &bytes).await?;
+            written += 1;
+        }
+        for (index, video) in post.videos.iter().enumerate() {
+            let video_bytes = self
+                .fansly
+                .download_track(&video.video_url, &video.cookie_header)
+                .await?;
+            let audio_bytes = match &video.audio_url {
+                Some(url) => self.fansly.download_track(url, &video.cookie_header).await?,
+                None => Vec::new(),
+            };
+            let muxed = self.muxer.mux(&video_bytes, &audio_bytes).await?;
+            let relative = self.file_path(
+                "fansly",
+                post_id,
+                post.images.len() + index,
+                video.extension(),
+                video.height,
+                &performer.name,
+                template.as_deref(),
+                post.title.as_deref(),
+                date.as_deref(),
+                multiple,
+            );
+            self.nfs.write_file(&relative, &muxed).await?;
             written += 1;
         }
         Ok((written, performer))
@@ -520,7 +549,7 @@ impl AppCore {
                 auth_token,
             } => {
                 let imported = match site.as_str() {
-                    "fansly" => self.import_fansly_images(&post_id, auth_token.as_deref()).await,
+                    "fansly" => self.import_fansly_post(&post_id, auth_token.as_deref()).await,
                     "redgifs" => self.import_redgifs_video(&post_id).await,
                     _ => {
                         return HostResponse::Error {
@@ -588,6 +617,22 @@ mod tests {
             redgifs: Arc::new(RedgifsClient::new()),
             source_statuses: Arc::new(RwLock::new(HashMap::new())),
             sources_config: Arc::new(RwLock::new(None)),
+            muxer: Arc::new(FakeMuxer),
+        }
+    }
+
+    /// Mux stand-in for tests: concatenates the two inputs with a marker, so
+    /// tests can assert both tracks reached the muxer without needing real
+    /// ffmpeg.
+    struct FakeMuxer;
+
+    #[async_trait::async_trait]
+    impl VideoMuxer for FakeMuxer {
+        async fn mux(&self, video: &[u8], audio: &[u8]) -> Result<Vec<u8>, CoreError> {
+            let mut muxed = video.to_vec();
+            muxed.extend_from_slice(b"|AUDIO:");
+            muxed.extend_from_slice(audio);
+            Ok(muxed)
         }
     }
 
@@ -1013,6 +1058,104 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn import_post_downloads_and_muxes_a_fansly_video() {
+        let server = MockServer::start().await;
+        let mpd_url = format!("{}/new/963222022433820673.mpd", server.uri());
+        Mock::given(method("GET"))
+            .and(path("/api/v1/post"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "response": {
+                    "posts": [{ "accountId": "acct-42", "attachments": [{ "contentId": "a" }] }],
+                    "accountMedia": [{
+                        "id": "a",
+                        "media": {
+                            "mimetype": "video/mp4", "width": 720, "height": 1100,
+                            "locations": [],
+                            "variants": [{
+                                "mimetype": "application/dash+xml", "width": 2160, "height": 3298,
+                                "locations": [{
+                                    "location": mpd_url,
+                                    "metadata": {
+                                        "Key-Pair-Id": "KEY123",
+                                        "Policy": "policy-token",
+                                        "Signature": "sig-token"
+                                    }
+                                }]
+                            }]
+                        }
+                    }]
+                }
+            })))
+            .mount(&server)
+            .await;
+        let cookie = "CloudFront-Key-Pair-Id=KEY123; CloudFront-Policy=policy-token; \
+                       CloudFront-Signature=sig-token";
+        Mock::given(method("GET"))
+            .and(path("/new/963222022433820673.mpd"))
+            .and(header("cookie", cookie))
+            .respond_with(ResponseTemplate::new(200).set_body_string(
+                r#"<?xml version="1.0" ?>
+                <MPD>
+                  <Period>
+                    <AdaptationSet mimeType="video/mp4">
+                      <Representation bandwidth="7993408" width="2160" height="3298">
+                        <BaseURL>video.mp4</BaseURL>
+                      </Representation>
+                    </AdaptationSet>
+                    <AdaptationSet mimeType="audio/mp4">
+                      <Representation bandwidth="387195">
+                        <BaseURL>audio.mp4</BaseURL>
+                      </Representation>
+                    </AdaptationSet>
+                  </Period>
+                </MPD>"#,
+            ))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/new/video.mp4"))
+            .and(header("cookie", cookie))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(b"video-bytes".to_vec()))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/new/audio.mp4"))
+            .and(header("cookie", cookie))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(b"audio-bytes".to_vec()))
+            .mount(&server)
+            .await;
+        mock_performer_lookup(&server, Some(("1", "Sienna Kade"))).await;
+
+        let library = tempfile::tempdir().unwrap();
+        let core = core_with_stash(
+            AppCore {
+                nfs: Arc::new(LocalFsWriter::new(library.path())),
+                fansly: Arc::new(FanslyClient::with_base_url(server.uri())),
+                ..test_core()
+            },
+            &server,
+        );
+
+        let response = core
+            .handle(HostRequest::ImportPost {
+                site: "fansly".into(),
+                post_id: "42".into(),
+                post_url: "https://fansly.com/post/42".into(),
+                auth_token: None,
+            })
+            .await;
+        match response {
+            HostResponse::PostImported { files, .. } => assert_eq!(files, 1),
+            other => panic!("expected PostImported, got {other:?}"),
+        }
+        // `FakeMuxer` concatenates its inputs with a marker, so this proves
+        // both tracks were downloaded and handed to the muxer before the
+        // result was written.
+        let saved = std::fs::read(library.path().join("fansly/42-1.mp4")).unwrap();
+        assert_eq!(saved, b"video-bytes|AUDIO:audio-bytes");
+    }
+
+    #[tokio::test]
     async fn import_post_names_files_with_the_configured_template() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
@@ -1255,6 +1398,7 @@ mod tests {
             redgifs: Arc::new(RedgifsClient::new()),
             source_statuses: Arc::new(RwLock::new(HashMap::new())),
             sources_config: Arc::new(RwLock::new(None)),
+            muxer: Arc::new(FakeMuxer),
         };
 
         let response = core

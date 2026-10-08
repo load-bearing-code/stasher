@@ -223,15 +223,34 @@ impl FanslyClient {
     }
 
     /// Everything the import flow needs from one post fetch: the downloadable
-    /// images plus the context (creator account, caption, timestamp) used to
-    /// tie the media to a Stash performer and name the files.
+    /// images and videos plus the context (creator account, caption,
+    /// timestamp) used to tie the media to a Stash performer and name the
+    /// files. Errors when a post has attachments but none yielded a
+    /// download link (locked content); a post with only videos (no images)
+    /// is not an error.
     pub async fn fetch_post_import(
         &self,
         post_id: &str,
         auth_token: Option<&str>,
     ) -> Result<PostImport, CoreError> {
         let response = self.fetch_post_response(post_id, auth_token).await?;
-        let images = select_images(&response)?;
+        let ordered = ordered_account_media(&response);
+        let images = collect_images(&ordered);
+        let mut videos = Vec::new();
+        for entry in &ordered {
+            if let Some(media) = entry.media.as_ref() {
+                if let Some(video) = self.resolve_video(media).await? {
+                    videos.push(video);
+                }
+            }
+        }
+        if images.is_empty() && videos.is_empty() && !ordered.is_empty() {
+            return Err(CoreError::Stash(
+                "this post's media is locked (subscribers or buyers only), so Fansly \
+                 gave no download links"
+                    .into(),
+            ));
+        }
         let post = response.posts.first().expect("checked non-empty");
         Ok(PostImport {
             account_id: post.account_id.clone().filter(|id| !id.is_empty()),
@@ -242,6 +261,7 @@ impl FanslyClient {
                 .filter(|content| !content.is_empty()),
             posted_at: post.created_at,
             images,
+            videos,
         })
     }
 
@@ -255,6 +275,101 @@ impl FanslyClient {
             .bytes()
             .await?;
         Ok(bytes.to_vec())
+    }
+
+    /// Like `download`, but sends `cookie_header` as the `Cookie` header —
+    /// needed for DASH/HLS representation files, which (unlike images) are
+    /// authorized by CloudFront signed cookies rather than a signed URL.
+    pub async fn download_track(
+        &self,
+        url: &str,
+        cookie_header: &str,
+    ) -> Result<Vec<u8>, CoreError> {
+        let bytes = self
+            .http
+            .get(url)
+            .header("cookie", cookie_header)
+            .send()
+            .await?
+            .error_for_status()?
+            .bytes()
+            .await?;
+        Ok(bytes.to_vec())
+    }
+
+    /// Resolves a media item's DASH manifest (if it has one, i.e. it's a
+    /// video) to the highest-bandwidth video representation and a matching
+    /// audio representation. Fansly serves video as separate video-only and
+    /// audio-only progressive MP4 files that need muxing; this picks which
+    /// ones to download, not the final file.
+    async fn resolve_video(&self, media: &FanslyMediaFile) -> Result<Option<PostVideo>, CoreError> {
+        let Some(dash) = std::iter::once(media)
+            .chain(media.variants.iter())
+            .find(|file| file.mimetype.as_deref() == Some("application/dash+xml"))
+        else {
+            return Ok(None);
+        };
+        let Some(location) = dash.locations.first() else {
+            return Ok(None);
+        };
+        let Some(metadata) = &location.metadata else {
+            return Ok(None);
+        };
+        let cookie_header = metadata.cookie_header();
+
+        let mpd_text = self
+            .http
+            .get(&location.location)
+            .header("cookie", &cookie_header)
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
+        let mpd: Mpd = quick_xml::de::from_str(&mpd_text).map_err(|err| {
+            CoreError::Stash(format!("fansly: couldn't parse this video's DASH manifest: {err}"))
+        })?;
+
+        let Some(video_rep) = mpd
+            .period
+            .adaptation_sets
+            .iter()
+            .filter(|set| set.mime_type.starts_with("video/"))
+            .flat_map(|set| set.representations.iter())
+            .max_by_key(|rep| rep.bandwidth)
+        else {
+            return Ok(None);
+        };
+        // Prefer the original (no `lang`) audio track over any dubbed ones
+        // Fansly may have generated.
+        let audio_rep = mpd
+            .period
+            .adaptation_sets
+            .iter()
+            .filter(|set| set.mime_type.starts_with("audio/") && set.lang.is_none())
+            .flat_map(|set| set.representations.iter())
+            .max_by_key(|rep| rep.bandwidth)
+            .or_else(|| {
+                mpd.period
+                    .adaptation_sets
+                    .iter()
+                    .filter(|set| set.mime_type.starts_with("audio/"))
+                    .flat_map(|set| set.representations.iter())
+                    .max_by_key(|rep| rep.bandwidth)
+            });
+
+        let base = location
+            .location
+            .rsplit_once('/')
+            .map(|(dir, _)| dir)
+            .unwrap_or("");
+        Ok(Some(PostVideo {
+            video_url: format!("{base}/{}", video_rep.base_url),
+            audio_url: audio_rep.map(|rep| format!("{base}/{}", rep.base_url)),
+            cookie_header,
+            width: video_rep.width.or(dash.width).unwrap_or(0),
+            height: video_rep.height.or(dash.height).unwrap_or(0),
+        }))
     }
 
     async fn fetch_profile_uncached(
@@ -465,37 +580,44 @@ pub struct PostImport {
     /// Post timestamp in Unix seconds, used as the date token.
     pub posted_at: Option<u32>,
     pub images: Vec<PostImage>,
+    pub videos: Vec<PostVideo>,
+}
+
+/// The media items attached to a post, in attachment order, with bundles
+/// expanded to their member items. An attachment's `contentId` is either a
+/// single media item or a bundle of them.
+fn ordered_account_media(data: &FanslyPosts) -> Vec<&FanslyAccountMedia> {
+    let post = data.posts.first().expect("checked non-empty");
+    if post.attachments.is_empty() {
+        return data.account_media.iter().collect();
+    }
+    let ids = post.attachments.iter().flat_map(|attachment| {
+        match data
+            .account_media_bundles
+            .iter()
+            .find(|bundle| bundle.id == attachment.content_id)
+        {
+            Some(bundle) => bundle.account_media_ids.iter().map(String::as_str).collect(),
+            None => vec![attachment.content_id.as_str()],
+        }
+    });
+    ids.filter_map(|id| data.account_media.iter().find(|entry| entry.id == id))
+        .collect()
+}
+
+fn collect_images(ordered: &[&FanslyAccountMedia]) -> Vec<PostImage> {
+    ordered
+        .iter()
+        .filter_map(|entry| best_image(entry.media.as_ref()?))
+        .collect()
 }
 
 /// Picks the best image for each of a post's attachments, in attachment
 /// order, expanding bundles. Errors when a post has attachments but none
 /// yielded a download link (locked content).
 fn select_images(data: &FanslyPosts) -> Result<Vec<PostImage>, CoreError> {
-    let post = data.posts.first().expect("checked non-empty");
-
-    // An attachment's `contentId` is either a single media item or a bundle
-    // of them.
-    let ordered: Vec<&FanslyAccountMedia> = if post.attachments.is_empty() {
-        data.account_media.iter().collect()
-    } else {
-        let ids = post.attachments.iter().flat_map(|attachment| {
-            match data
-                .account_media_bundles
-                .iter()
-                .find(|bundle| bundle.id == attachment.content_id)
-            {
-                Some(bundle) => bundle.account_media_ids.iter().map(String::as_str).collect(),
-                None => vec![attachment.content_id.as_str()],
-            }
-        });
-        ids.filter_map(|id| data.account_media.iter().find(|entry| entry.id == id))
-            .collect()
-    };
-
-    let images: Vec<PostImage> = ordered
-        .iter()
-        .filter_map(|entry| best_image(entry.media.as_ref()?))
-        .collect();
+    let ordered = ordered_account_media(data);
+    let images = collect_images(&ordered);
     if images.is_empty() && !ordered.is_empty() {
         return Err(CoreError::Stash(
             "this post's media is locked (subscribers or buyers only), so Fansly \
@@ -504,6 +626,44 @@ fn select_images(data: &FanslyPosts) -> Result<Vec<PostImage>, CoreError> {
         ));
     }
     Ok(images)
+}
+
+/// Fansly's DASH manifest (`.mpd`) for a video, in the "on-demand" profile:
+/// each `Representation` is a single standalone fragmented MP4 (video-only
+/// or audio-only), not a segment series, so resolving one is just picking
+/// the best `Representation` per track and downloading its `BaseURL`.
+#[derive(Debug, Deserialize)]
+struct Mpd {
+    #[serde(rename = "Period")]
+    period: MpdPeriod,
+}
+
+#[derive(Debug, Deserialize)]
+struct MpdPeriod {
+    #[serde(rename = "AdaptationSet", default)]
+    adaptation_sets: Vec<MpdAdaptationSet>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MpdAdaptationSet {
+    #[serde(rename = "@mimeType")]
+    mime_type: String,
+    #[serde(rename = "@lang", default)]
+    lang: Option<String>,
+    #[serde(rename = "Representation", default)]
+    representations: Vec<MpdRepresentation>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MpdRepresentation {
+    #[serde(rename = "@bandwidth")]
+    bandwidth: u64,
+    #[serde(rename = "@width", default)]
+    width: Option<u32>,
+    #[serde(rename = "@height", default)]
+    height: Option<u32>,
+    #[serde(rename = "BaseURL")]
+    base_url: String,
 }
 
 /// One downloadable image, already resolved to the best available variant.
@@ -524,6 +684,26 @@ impl PostImage {
             "image/gif" => "gif",
             other => other.strip_prefix("image/").unwrap_or("bin"),
         }
+    }
+}
+
+/// One downloadable video, resolved from Fansly's DASH manifest. DASH splits
+/// video and audio into separate progressive MP4 files; both need muxing
+/// into one container before the result is playable.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PostVideo {
+    pub video_url: String,
+    /// `None` on the rare post with no distinct audio track.
+    pub audio_url: Option<String>,
+    /// `Cookie` header value (CloudFront-signed) required to fetch both URLs.
+    pub cookie_header: String,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl PostVideo {
+    pub fn extension(&self) -> &str {
+        "mp4"
     }
 }
 
@@ -582,6 +762,31 @@ struct FanslyMedia {
 #[derive(Debug, Deserialize)]
 struct FanslyMediaLocation {
     location: String,
+    /// Present on HLS/DASH manifest locations: the CloudFront signed-cookie
+    /// triple needed to fetch the manifest and the representation files it
+    /// references. Absent on plain signed-URL locations (images, direct
+    /// MP4 proxies), which carry their own signature in the URL instead.
+    #[serde(default)]
+    metadata: Option<FanslyLocationMetadata>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FanslyLocationMetadata {
+    #[serde(rename = "Key-Pair-Id")]
+    key_pair_id: String,
+    #[serde(rename = "Policy")]
+    policy: String,
+    #[serde(rename = "Signature")]
+    signature: String,
+}
+
+impl FanslyLocationMetadata {
+    fn cookie_header(&self) -> String {
+        format!(
+            "CloudFront-Key-Pair-Id={}; CloudFront-Policy={}; CloudFront-Signature={}",
+            self.key_pair_id, self.policy, self.signature
+        )
+    }
 }
 
 #[cfg(test)]
@@ -687,6 +892,88 @@ mod tests {
 
         let err = client.fetch_post_media("locked", None).await.unwrap_err();
         assert!(err.to_string().contains("locked"));
+    }
+
+    #[tokio::test]
+    async fn fetch_post_import_resolves_the_best_video_and_audio_from_the_dash_manifest() {
+        let server = MockServer::start().await;
+        let mpd_url = format!("{}/new/963222022433820673.mpd", server.uri());
+        Mock::given(method("GET"))
+            .and(path("/api/v1/post"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "response": {
+                    "posts": [{ "accountId": "acct-42", "attachments": [{ "contentId": "a" }] }],
+                    "accountMedia": [{
+                        "id": "a",
+                        "media": {
+                            "mimetype": "video/mp4", "width": 720, "height": 1100,
+                            "locations": [],
+                            "variants": [{
+                                "mimetype": "application/dash+xml", "width": 2160, "height": 3298,
+                                "locations": [{
+                                    "location": mpd_url,
+                                    "metadata": {
+                                        "Key-Pair-Id": "KEY123",
+                                        "Policy": "policy-token",
+                                        "Signature": "sig-token"
+                                    }
+                                }]
+                            }]
+                        }
+                    }]
+                }
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/new/963222022433820673.mpd"))
+            .and(header(
+                "cookie",
+                "CloudFront-Key-Pair-Id=KEY123; CloudFront-Policy=policy-token; \
+                 CloudFront-Signature=sig-token",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_string(
+                r#"<?xml version="1.0" ?>
+                <MPD>
+                  <Period>
+                    <AdaptationSet mimeType="video/mp4">
+                      <Representation bandwidth="1076752" width="720" height="1100">
+                        <BaseURL>media-video-avc1-3.mp4</BaseURL>
+                      </Representation>
+                      <Representation bandwidth="7993408" width="2160" height="3298">
+                        <BaseURL>media-video-avc1-1.mp4</BaseURL>
+                      </Representation>
+                    </AdaptationSet>
+                    <AdaptationSet mimeType="audio/mp4" lang="en">
+                      <Representation bandwidth="247043">
+                        <BaseURL>media-audio-en.mp4</BaseURL>
+                      </Representation>
+                    </AdaptationSet>
+                    <AdaptationSet mimeType="audio/mp4">
+                      <Representation bandwidth="387195">
+                        <BaseURL>media-audio-und.mp4</BaseURL>
+                      </Representation>
+                    </AdaptationSet>
+                  </Period>
+                </MPD>"#,
+            ))
+            .mount(&server)
+            .await;
+
+        let client = FanslyClient::with_base_url(server.uri());
+        let post = client.fetch_post_import("42", None).await.unwrap();
+
+        assert!(post.images.is_empty());
+        assert_eq!(post.videos.len(), 1);
+        let video = &post.videos[0];
+        assert!(video.video_url.ends_with("/media-video-avc1-1.mp4"));
+        assert_eq!(
+            video.audio_url.as_deref(),
+            Some(format!("{}/new/media-audio-und.mp4", server.uri())).as_deref()
+        );
+        assert_eq!(video.width, 2160);
+        assert_eq!(video.height, 3298);
+        assert_eq!(video.extension(), "mp4");
     }
 
     #[tokio::test]

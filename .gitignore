@@ -13,6 +13,11 @@ target/
 # Tauri
 apps/desktop/src-tauri/target/
 
+# ffmpeg sidecar binaries: platform-specific, fetched by
+# apps/desktop/src-tauri/binaries/fetch-ffmpeg.sh, not committed.
+apps/desktop/src-tauri/binaries/*
+!apps/desktop/src-tauri/binaries/fetch-ffmpeg.sh
+
 # Design prototypes
 .design/*
 !.design/.gitkeep

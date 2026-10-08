@@ -1,4 +1,5 @@
 mod config;
+mod ffmpeg_muxer;
 mod ipc;
 
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -187,6 +188,7 @@ pub fn run() {
     tracing_subscriber::fmt::init();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             ping,
             get_stash_config,
@@ -239,6 +241,7 @@ pub fn run() {
                 redgifs: Arc::new(RedgifsClient::new().with_cache_file(redgifs_cache)),
                 source_statuses,
                 sources_config: sources_config.clone(),
+                muxer: Arc::new(ffmpeg_muxer::FfmpegSidecarMuxer::new(app.handle().clone())),
             });
             app.manage(core.clone());
             ipc::spawn_socket_server(core, extension_last_seen.clone());
