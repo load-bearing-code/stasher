@@ -35,6 +35,9 @@ pub trait StashClient: Send + Sync {
         exclude_id: Option<&str>,
     ) -> Result<Vec<PerformerCandidate>, CoreError>;
 
+    /// Whether any Stash scene has `post_url` among its URLs.
+    async fn post_exists(&self, post_url: &str) -> Result<bool, CoreError>;
+
     /// Free-text performer search (the popup's manual "search for someone
     /// else" fallback).
     async fn search_performers(&self, query: &str) -> Result<Vec<PerformerCandidate>, CoreError>;
@@ -114,6 +117,10 @@ impl StashClient for ConfiguredStashClient {
         self.client()?
             .find_performer_candidates(profile, exclude_id)
             .await
+    }
+
+    async fn post_exists(&self, post_url: &str) -> Result<bool, CoreError> {
+        self.client()?.post_exists(post_url).await
     }
 
     async fn search_performers(&self, query: &str) -> Result<Vec<PerformerCandidate>, CoreError> {
@@ -251,6 +258,17 @@ struct FindPerformersResult {
 struct FindPerformerData {
     #[serde(rename = "findPerformer")]
     find_performer: Option<GqlPerformer>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FindScenesData {
+    #[serde(rename = "findScenes")]
+    find_scenes: FindScenesResult,
+}
+
+#[derive(Debug, Deserialize)]
+struct FindScenesResult {
+    count: i32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -535,6 +553,21 @@ impl StashClient for GraphqlStashClient {
             .collect())
     }
 
+    async fn post_exists(&self, post_url: &str) -> Result<bool, CoreError> {
+        let data: FindScenesData = self
+            .request(
+                "query($scene_filter: SceneFilterType, $filter: FindFilterType) { \
+                    findScenes(scene_filter: $scene_filter, filter: $filter) { count } \
+                }",
+                json!({
+                    "scene_filter": { "url": { "value": post_url, "modifier": "EQUALS" } },
+                    "filter": { "per_page": 1 },
+                }),
+            )
+            .await?;
+        Ok(data.find_scenes.count > 0)
+    }
+
     async fn search_performers(&self, query: &str) -> Result<Vec<PerformerCandidate>, CoreError> {
         let performers = self.search(query).await?;
         Ok(performers
@@ -640,6 +673,11 @@ impl StashClient for LoggingStashClient {
     ) -> Result<Vec<PerformerCandidate>, CoreError> {
         tracing::info!(url = %profile.profile_url, "stash: find_performer_candidates (stub)");
         Ok(Vec::new())
+    }
+
+    async fn post_exists(&self, post_url: &str) -> Result<bool, CoreError> {
+        tracing::info!(post_url, "stash: post_exists (stub)");
+        Ok(false)
     }
 
     async fn search_performers(&self, query: &str) -> Result<Vec<PerformerCandidate>, CoreError> {
@@ -772,6 +810,42 @@ mod tests {
         let found = client.find_exact_performer(&profile).await.unwrap();
 
         assert!(found.is_none());
+    }
+
+    #[tokio::test]
+    async fn post_exists_is_true_when_a_scene_has_the_url() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/graphql"))
+            .and(body_partial_json(json!({
+                "variables": { "scene_filter": { "url": {
+                    "value": "https://fansly.com/post/42",
+                    "modifier": "EQUALS",
+                } } }
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "findScenes": { "count": 1 } }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = client_for(&server).await;
+        assert!(client.post_exists("https://fansly.com/post/42").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn post_exists_is_false_when_no_scene_has_the_url() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/graphql"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "findScenes": { "count": 0 } }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = client_for(&server).await;
+        assert!(!client.post_exists("https://fansly.com/post/42").await.unwrap());
     }
 
     #[tokio::test]

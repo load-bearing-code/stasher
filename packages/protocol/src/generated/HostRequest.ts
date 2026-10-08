@@ -11,4 +11,4 @@ export type HostRequest = { "type": "ping", nonce: string, } | { "type": "submit
  * Skip the desktop app's cached copy of the site profile and fetch
  * it fresh.
  */
-refresh: boolean, } | { "type": "searchPerformers", query: string, } | { "type": "linkPerformer", performerId: string, profile: SiteProfile, } | { "type": "importPerformer", profile: SiteProfile, draft: PerformerDraft, };
+refresh: boolean, } | { "type": "lookupPost", site: string, postId: string, postUrl: string, } | { "type": "searchPerformers", query: string, } | { "type": "linkPerformer", performerId: string, profile: SiteProfile, } | { "type": "importPerformer", profile: SiteProfile, draft: PerformerDraft, };

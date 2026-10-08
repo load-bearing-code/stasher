@@ -117,6 +117,23 @@ impl AppCore {
                     candidates,
                 }
             }
+            HostRequest::LookupPost {
+                site,
+                post_id: _,
+                post_url,
+            } => {
+                if site != "fansly" {
+                    return HostResponse::Error {
+                        message: format!("unsupported site: {site}"),
+                    };
+                }
+                match self.stash.post_exists(&post_url).await {
+                    Ok(in_stash) => HostResponse::PostLookup { post_url, in_stash },
+                    Err(err) => HostResponse::Error {
+                        message: err.to_string(),
+                    },
+                }
+            }
             HostRequest::SearchPerformers { query } => {
                 match self.stash.search_performers(&query).await {
                     Ok(candidates) => HostResponse::PerformerSearch { candidates },
@@ -221,6 +238,59 @@ mod tests {
                 assert!(stash_reachable);
             }
             _ => panic!("expected Status"),
+        }
+    }
+
+    #[tokio::test]
+    async fn lookup_post_rejects_unsupported_site() {
+        let core = test_core();
+        let response = core
+            .handle(HostRequest::LookupPost {
+                site: "onlyfans".into(),
+                post_id: "1".into(),
+                post_url: "https://onlyfans.com/1".into(),
+            })
+            .await;
+        match response {
+            HostResponse::Error { message } => assert!(message.contains("unsupported site")),
+            _ => panic!("expected Error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn lookup_post_reports_whether_stash_has_it() {
+        let stash_server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/graphql"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "findScenes": { "count": 1 } }
+            })))
+            .mount(&stash_server)
+            .await;
+
+        let stash_config = Arc::new(RwLock::new(Some(StashConfig {
+            stash_url: stash_server.uri(),
+            api_key: "test-key".into(),
+        })));
+        let core = AppCore {
+            stash: Arc::new(ConfiguredStashClient::new(stash_config.clone())),
+            stash_config,
+            ..test_core()
+        };
+
+        let response = core
+            .handle(HostRequest::LookupPost {
+                site: "fansly".into(),
+                post_id: "42".into(),
+                post_url: "https://fansly.com/post/42".into(),
+            })
+            .await;
+        match response {
+            HostResponse::PostLookup { post_url, in_stash } => {
+                assert_eq!(post_url, "https://fansly.com/post/42");
+                assert!(in_stash);
+            }
+            _ => panic!("expected PostLookup"),
         }
     }
 

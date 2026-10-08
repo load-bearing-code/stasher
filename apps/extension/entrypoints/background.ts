@@ -1,4 +1,4 @@
-import { matchProfile } from "@stasher/core";
+import { matchPost, matchProfile } from "@stasher/core";
 import type { HostRequest, HostResponse } from "@stasher/protocol";
 
 /**
@@ -109,8 +109,9 @@ export default defineBackground(() => {
     }
 
     results.delete(tabId);
-    const detected = url ? matchProfile(url) : null;
-    if (!url || !detected) {
+    const profile = url ? matchProfile(url) : null;
+    const post = url && !profile ? matchPost(url) : null;
+    if (!url || (!profile && !post)) {
       await setBadge(tabId, "none");
       return;
     }
@@ -121,21 +122,39 @@ export default defineBackground(() => {
     await setBadge(tabId, "none");
 
     try {
-      const response = await enqueue({
-        type: "lookupProfile",
-        site: detected.site,
-        username: detected.username,
-        profileUrl: detected.profileUrl,
-        refresh: false,
-      });
-      if (response.type !== "profileLookup") return;
-      lookupCache.set(detected.profileUrl, { response, at: Date.now() });
+      let cacheKey: string;
+      let request: HostRequest;
+      if (profile) {
+        cacheKey = profile.profileUrl;
+        request = {
+          type: "lookupProfile",
+          site: profile.site,
+          username: profile.username,
+          profileUrl: profile.profileUrl,
+          refresh: false,
+        };
+      } else if (post) {
+        cacheKey = post.postUrl;
+        request = {
+          type: "lookupPost",
+          site: post.site,
+          postId: post.postId,
+          postUrl: post.postUrl,
+        };
+      } else {
+        return;
+      }
+
+      const response = await enqueue(request);
+      if (response.type !== "profileLookup" && response.type !== "postLookup") return;
+      lookupCache.set(cacheKey, { response, at: Date.now() });
 
       // Navigation may have moved on while the lookup was in flight.
       const current = await browser.tabs.get(tabId).catch(() => undefined);
       if (current?.url !== url) return;
 
-      const state = response.exactMatch ? "inStash" : "notInStash";
+      const found = response.type === "profileLookup" ? !!response.exactMatch : response.inStash;
+      const state = found ? "inStash" : "notInStash";
       results.set(tabId, { url, state });
       await setBadge(tabId, state);
     } finally {
@@ -166,6 +185,13 @@ export default defineBackground(() => {
         return false;
       }
     }
+    if (message.type === "lookupPost") {
+      const cached = getCachedLookup(message.postUrl);
+      if (cached) {
+        sendResponse(cached);
+        return false;
+      }
+    }
 
     void enqueue(message).then(async (response) => {
       sendResponse(response);
@@ -173,6 +199,8 @@ export default defineBackground(() => {
         lookupCache.clear();
       } else if (message.type === "lookupProfile" && response.type === "profileLookup") {
         lookupCache.set(message.profileUrl, { response, at: Date.now() });
+      } else if (message.type === "lookupPost" && response.type === "postLookup") {
+        lookupCache.set(message.postUrl, { response, at: Date.now() });
       }
       const state: BadgeState | undefined =
         response.type === "performerCreated" || response.type === "performerLinked"
@@ -181,7 +209,11 @@ export default defineBackground(() => {
             ? response.exactMatch
               ? "inStash"
               : "notInStash"
-            : undefined;
+            : response.type === "postLookup"
+              ? response.inStash
+                ? "inStash"
+                : "notInStash"
+              : undefined;
       if (state) {
         const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
         if (tab?.id !== undefined) {

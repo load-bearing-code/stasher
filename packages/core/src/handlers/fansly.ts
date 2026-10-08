@@ -1,4 +1,4 @@
-import type { DetectedProfile, SiteHandler } from "./types";
+import type { DetectedPost, DetectedProfile, SiteHandler } from "./types";
 
 /**
  * Top-level Fansly routes that aren't creator usernames. Best-effort list;
@@ -28,10 +28,25 @@ const RESERVED_PATHS = new Set([
   "verify",
   "for-you",
   "trending",
+  "post",
 ]);
 
 export const fanslyHandler: SiteHandler = {
   site: "fansly",
+
+  matchPost(url: URL): DetectedPost | null {
+    const host = url.hostname.replace(/^www\./, "");
+    if (host !== "fansly.com") return null;
+
+    const [route, postId] = url.pathname.split("/").filter(Boolean);
+    if (route?.toLowerCase() !== "post" || !postId || !/^\d+$/.test(postId)) return null;
+
+    return {
+      site: "fansly",
+      postId,
+      postUrl: `https://fansly.com/post/${postId}`,
+    };
+  },
 
   matchProfile(url: URL): DetectedProfile | null {
     const host = url.hostname.replace(/^www\./, "");

@@ -10,8 +10,16 @@ export interface DetectedProfile {
   profileUrl: string;
 }
 
-/** Recognizes profile pages on one site and extracts a `DetectedProfile`. */
+/** A single post detected on a supported site, before Stash has been checked for it. */
+export interface DetectedPost {
+  site: string;
+  postId: string;
+  postUrl: string;
+}
+
+/** Recognizes profile and post pages on one site. */
 export interface SiteHandler {
   site: string;
   matchProfile(url: URL): DetectedProfile | null;
+  matchPost(url: URL): DetectedPost | null;
 }

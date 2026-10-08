@@ -1,4 +1,4 @@
-import { matchProfile } from "@stasher/core";
+import { matchPost, matchProfile } from "@stasher/core";
 import type {
   HostRequest,
   HostResponse,
@@ -18,6 +18,7 @@ type Stage =
   | { kind: "unsupported" }
   | { kind: "needsConfig" }
   | { kind: "error"; message: string }
+  | { kind: "post"; postUrl: string; inStash: boolean }
   | {
       kind: "ready";
       profile: SiteProfile;
@@ -103,17 +104,33 @@ async function fetchStage(refresh: boolean): Promise<Stage> {
     currentWindow: true,
   });
   const detected = tab?.url ? matchProfile(tab.url) : null;
-  if (!detected) return { kind: "unsupported" };
+  const detectedPost = tab?.url && !detected ? matchPost(tab.url) : null;
 
-  try {
-    const request: HostRequest = {
+  let request: HostRequest;
+  if (detected) {
+    request = {
       type: "lookupProfile",
       site: detected.site,
       username: detected.username,
       profileUrl: detected.profileUrl,
       refresh,
     };
+  } else if (detectedPost) {
+    request = {
+      type: "lookupPost",
+      site: detectedPost.site,
+      postId: detectedPost.postId,
+      postUrl: detectedPost.postUrl,
+    };
+  } else {
+    return { kind: "unsupported" };
+  }
+
+  try {
     const response: HostResponse = await browser.runtime.sendMessage(request);
+    if (response.type === "postLookup") {
+      return { kind: "post", postUrl: response.postUrl, inStash: response.inStash };
+    }
     if (response.type === "profileLookup") {
       return {
         kind: "ready",
@@ -233,6 +250,41 @@ export function App() {
           </p>
         )}
         {stage.kind === "error" && <p className="text-destructive">{stage.message}</p>}
+
+        {stage.kind === "post" && (
+          <Card variant="inset" className="gap-0 py-0">
+            <CardContent className="flex items-center gap-4 p-5">
+              {stage.inStash ? (
+                <CheckIcon className="size-5 text-primary" />
+              ) : (
+                <SearchIcon className="size-5 shrink-0 text-muted-foreground" />
+              )}
+              <div className="flex-1 overflow-hidden">
+                <p className="font-semibold">
+                  {stage.inStash ? "This post is in your Stash" : "This post isn't in your Stash"}
+                </p>
+                <a
+                  href={stage.postUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex max-w-full items-center gap-1 font-mono text-xs text-muted-foreground hover:text-foreground hover:underline"
+                >
+                  <span className="truncate">{stage.postUrl.replace(/^https:\/\//, "")}</span>
+                  <ExternalLinkIcon className="size-3 shrink-0" />
+                </a>
+              </div>
+              <Button
+                variant="outline"
+                className="h-7 rounded-full bg-secondary px-3 text-xs font-normal text-secondary-foreground"
+                disabled={refreshing}
+                title="Re-check Stash"
+                onClick={() => void refresh()}
+              >
+                <RefreshCwIcon className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {stage.kind === "ready" && wizardOpen && !resolved && (
           <ImportWizard

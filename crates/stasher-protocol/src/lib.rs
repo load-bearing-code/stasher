@@ -168,6 +168,13 @@ pub enum HostRequest {
         #[serde(default)]
         refresh: bool,
     },
+    /// Detected a post on a supported site; check whether Stash already has
+    /// a scene for it.
+    LookupPost {
+        site: String,
+        post_id: String,
+        post_url: String,
+    },
     /// Free-text performer search (the popup's "search for someone else").
     SearchPerformers {
         query: String,
@@ -208,6 +215,10 @@ pub enum HostResponse {
         profile: SiteProfile,
         exact_match: Option<Performer>,
         candidates: Vec<PerformerCandidate>,
+    },
+    PostLookup {
+        post_url: String,
+        in_stash: bool,
     },
     PerformerSearch {
         candidates: Vec<PerformerCandidate>,
