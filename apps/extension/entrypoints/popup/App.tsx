@@ -6,7 +6,11 @@ import type {
   PerformerCandidate,
   SiteProfile,
 } from "@stasher/protocol";
-import { Avatar, AvatarFallback, AvatarImage } from "@stasher/ui/components/avatar";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@stasher/ui/components/avatar";
 import { Badge } from "@stasher/ui/components/badge";
 import { Button } from "@stasher/ui/components/button";
 import { Card, CardContent } from "@stasher/ui/components/card";
@@ -37,7 +41,7 @@ function initials(name: string): string {
 
 function candidateReason(candidate: PerformerCandidate): string {
   const primary = candidate.matchedAlias
-    ? `Alias '${candidate.matchedAlias}'`
+    ? `Alias “${candidate.matchedAlias}”`
     : candidate.nameSimilar
       ? "Similar name"
       : "Possible match";
@@ -63,16 +67,18 @@ function CandidateRow({
   onLink: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border p-2">
+    <div className="flex items-center gap-3 p-4">
       <Avatar>
         <AvatarImage src={candidate.performer.imagePath ?? undefined} />
         <AvatarFallback>{initials(candidate.performer.name)}</AvatarFallback>
       </Avatar>
       <div className="flex-1 overflow-hidden">
-        <p className="truncate font-medium">{candidate.performer.name}</p>
-        <p className="truncate text-xs text-muted-foreground">{candidateReason(candidate)}</p>
+        <p className="truncate font-semibold">{candidate.performer.name}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {candidateReason(candidate)}
+        </p>
       </div>
-      <Button size="sm" variant="outline" disabled={linking} onClick={onLink}>
+      <Button variant="outline" disabled={linking} onClick={onLink}>
         {linking ? "..." : "Link"}
       </Button>
     </div>
@@ -90,15 +96,20 @@ export function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<PerformerCandidate[] | null>(null);
+  const [searchResults, setSearchResults] = useState<
+    PerformerCandidate[] | null
+  >(null);
 
   useEffect(() => {
     async function loadStatus() {
       try {
         const request: HostRequest = { type: "getStatus" };
-        const response: HostResponse = await browser.runtime.sendMessage(request);
+        const response: HostResponse =
+          await browser.runtime.sendMessage(request);
         if (response.type === "status") {
-          setStashHost(response.stashUrl ? new URL(response.stashUrl).host : null);
+          setStashHost(
+            response.stashUrl ? new URL(response.stashUrl).host : null,
+          );
           setConnection(response.stashReachable ? "connected" : "disconnected");
         } else {
           setConnection("disconnected");
@@ -109,7 +120,10 @@ export function App() {
     }
 
     async function loadProfile() {
-      const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+      const [tab] = await browser.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
       const detected = tab?.url ? matchProfile(tab.url) : null;
       if (!detected) {
         setStage({ kind: "unsupported" });
@@ -123,7 +137,8 @@ export function App() {
           username: detected.username,
           profileUrl: detected.profileUrl,
         };
-        const response: HostResponse = await browser.runtime.sendMessage(request);
+        const response: HostResponse =
+          await browser.runtime.sendMessage(request);
         if (response.type === "profileLookup") {
           setStage({
             kind: "ready",
@@ -139,7 +154,10 @@ export function App() {
           );
         }
       } catch {
-        setStage({ kind: "error", message: "Couldn't reach the Stasher desktop app." });
+        setStage({
+          kind: "error",
+          message: "Couldn't reach the Stasher desktop app.",
+        });
       }
     }
 
@@ -165,7 +183,11 @@ export function App() {
   async function linkPerformer(performerId: string, profileUrl: string) {
     setLinkingId(performerId);
     try {
-      const request: HostRequest = { type: "linkPerformer", performerId, profileUrl };
+      const request: HostRequest = {
+        type: "linkPerformer",
+        performerId,
+        profileUrl,
+      };
       const response: HostResponse = await browser.runtime.sendMessage(request);
       if (response.type === "performerLinked") {
         setResolved({ performer: response.performer, via: "linked" });
@@ -212,102 +234,125 @@ export function App() {
           : `Desktop app · ${stashHost}`;
 
   return (
-    <main className="flex w-[400px] flex-col text-sm">
-      <header className="flex items-center justify-between gap-2 border-b px-3 py-2.5">
-        <div className="flex items-center gap-2 font-semibold">
-          <RefreshCwIcon className="size-4 text-primary" />
+    <main className="flex min-h-[600px] w-[400px] flex-col text-xs">
+      <header className="flex items-center justify-between gap-2 border-b px-5 pt-5 pb-4">
+        <div className="flex items-center gap-3 text-sm font-semibold">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-foreground text-background">
+            <RefreshCwIcon className="size-4" />
+          </div>
           Stash Sync
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium">
           <span className={`size-2 rounded-full ${dotColor}`} />
-          {statusLabel}
+          {connection === "connected" ? stashHost : statusLabel}
         </div>
       </header>
 
-      <div className="flex flex-col gap-3 p-3">
-        {stage.kind === "loading" && <p className="text-muted-foreground">Checking this page...</p>}
+      <div className="flex flex-1 flex-col gap-5 p-4">
+        {stage.kind === "loading" && (
+          <p className="text-muted-foreground">Checking this page...</p>
+        )}
         {stage.kind === "unsupported" && (
-          <p className="text-muted-foreground">No supported profile detected on this page.</p>
+          <p className="text-muted-foreground">
+            No supported profile detected on this page.
+          </p>
         )}
         {stage.kind === "needsConfig" && (
           <p className="text-muted-foreground">
             Connect to Stash in the desktop app's settings to use this.
           </p>
         )}
-        {stage.kind === "error" && <p className="text-destructive">{stage.message}</p>}
+        {stage.kind === "error" && (
+          <p className="text-destructive">{stage.message}</p>
+        )}
 
         {stage.kind === "ready" && (
           <>
-            <Card>
-              <CardContent className="flex items-center gap-3 p-3">
-                <Avatar size="lg">
+            <Card className="gap-0 divide-y py-0">
+              <CardContent className="flex items-center gap-4 p-5">
+                <Avatar size="lg" className="size-12">
                   <AvatarImage src={stage.profile.photoUrl ?? undefined} />
-                  <AvatarFallback>
-                    {initials(stage.profile.displayName ?? stage.profile.username)}
+                  <AvatarFallback className="text-sm">
+                    {initials(
+                      stage.profile.displayName ?? stage.profile.username,
+                    )}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 overflow-hidden">
-                  <p className="truncate font-semibold">
+                  <p className="truncate text-sm font-semibold">
                     {stage.profile.displayName ?? stage.profile.username}
                   </p>
-                  <p className="truncate text-xs text-muted-foreground">
+                  <p className="truncate text-muted-foreground">
                     @{stage.profile.username} · {stage.profile.site}.com
                   </p>
                 </div>
                 <Badge variant="secondary">Detected</Badge>
               </CardContent>
-            </Card>
 
-            {resolved ? (
-              <Card>
-                <CardContent className="flex items-center gap-2 p-3">
-                  <CheckIcon className="size-4 text-primary" />
+              {resolved ? (
+                <CardContent className="flex items-center gap-4 p-5">
+                  <CheckIcon className="size-5 text-primary" />
                   <p>
                     {resolved.via === "created" ? "Created" : "Linked to"}{" "}
-                    <span className="font-medium">{resolved.performer.name}</span> in Stash.
+                    <span className="font-semibold">
+                      {resolved.performer.name}
+                    </span>{" "}
+                    in Stash.
                   </p>
                 </CardContent>
-              </Card>
-            ) : stage.exactMatch ? (
-              <Card>
-                <CardContent className="flex items-center gap-2 p-3">
-                  <CheckIcon className="size-4 text-primary" />
+              ) : stage.exactMatch ? (
+                <CardContent className="flex items-center gap-4 p-5">
+                  <CheckIcon className="size-5 text-primary" />
                   <div>
-                    <p className="font-medium">Already in your Stash</p>
-                    <p className="text-xs text-muted-foreground">{stage.exactMatch.name}</p>
+                    <p className="font-semibold">Already in your Stash</p>
+                    <p className="text-muted-foreground">
+                      {stage.exactMatch.name}
+                    </p>
                   </div>
                 </CardContent>
-              </Card>
-            ) : (
-              <>
-                <Card>
-                  <CardContent className="flex items-start gap-2 p-3">
-                    <SearchIcon className="mt-0.5 size-4 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Not in your Stash yet</p>
-                      <p className="text-xs text-muted-foreground">
-                        No performer has this {stage.profile.site} URL, and no name or alias is an
-                        exact match.
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
+              ) : (
+                <CardContent className="flex items-start gap-4 p-5">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-dashed text-muted-foreground">
+                    <SearchIcon className="size-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">
+                      Not in your Stash yet
+                    </p>
+                    <p className="text-muted-foreground">
+                      No performer has this{" "}
+                      {stage.profile.site === "fansly"
+                        ? "Fansly"
+                        : stage.profile.site}{" "}
+                      URL, and no name or alias is an exact match.
+                    </p>
+                  </div>
+                </CardContent>
+              )}
+            </Card>
 
+            {!resolved && !stage.exactMatch && (
+              <>
                 {stage.candidates.length > 0 && (
-                  <div className="flex flex-col gap-2">
-                    <p className="text-xs font-medium text-muted-foreground">
+                  <div className="flex flex-col gap-3">
+                    <p className="text-sm font-semibold">
                       Could it be one of these?
                     </p>
-                    {stage.candidates.map((candidate) => (
-                      <CandidateRow
-                        key={candidate.performer.id}
-                        candidate={candidate}
-                        linking={linkingId === candidate.performer.id}
-                        onLink={() =>
-                          void linkPerformer(candidate.performer.id, stage.profile.profileUrl)
-                        }
-                      />
-                    ))}
+                    <Card className="gap-0 divide-y py-0">
+                      {stage.candidates.map((candidate) => (
+                        <CandidateRow
+                          key={candidate.performer.id}
+                          candidate={candidate}
+                          linking={linkingId === candidate.performer.id}
+                          onLink={() =>
+                            void linkPerformer(
+                              candidate.performer.id,
+                              stage.profile.profileUrl,
+                            )
+                          }
+                        />
+                      ))}
+                    </Card>
                   </div>
                 )}
 
@@ -325,14 +370,21 @@ export function App() {
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
                       />
-                      <Button type="submit" size="sm" variant="outline" disabled={searching}>
+                      <Button
+                        type="submit"
+                        size="sm"
+                        variant="outline"
+                        disabled={searching}
+                      >
                         {searching ? "..." : "Search"}
                       </Button>
                     </div>
                     {searchResults && (
                       <div className="flex flex-col gap-2">
                         {searchResults.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">No performers found.</p>
+                          <p className="text-xs text-muted-foreground">
+                            No performers found.
+                          </p>
                         ) : (
                           searchResults.map((candidate) => (
                             <CandidateRow
@@ -340,7 +392,10 @@ export function App() {
                               candidate={candidate}
                               linking={linkingId === candidate.performer.id}
                               onLink={() =>
-                                void linkPerformer(candidate.performer.id, stage.profile.profileUrl)
+                                void linkPerformer(
+                                  candidate.performer.id,
+                                  stage.profile.profileUrl,
+                                )
                               }
                             />
                           ))
@@ -351,10 +406,10 @@ export function App() {
                 ) : (
                   <button
                     type="button"
-                    className="text-left text-xs text-primary underline-offset-2 hover:underline"
+                    className="self-start border-b border-foreground text-left text-sm font-medium"
                     onClick={() => setSearchOpen(true)}
                   >
-                    Search Stash for someone else...
+                    Search Stash for someone else
                   </button>
                 )}
               </>
@@ -364,9 +419,12 @@ export function App() {
       </div>
 
       {stage.kind === "ready" && !stage.exactMatch && !resolved && (
-        <footer className="flex items-center justify-between gap-2 border-t px-3 py-2.5">
-          <p className="text-xs text-muted-foreground">Nothing is saved until you confirm.</p>
-          <Button size="sm" disabled={importing} onClick={() => createPerformer(stage.profile)}>
+        <footer className="flex items-center justify-end border-t px-5 py-4">
+          <Button
+            className="shrink-0 whitespace-nowrap"
+            disabled={importing}
+            onClick={() => createPerformer(stage.profile)}
+          >
             {importing ? "Creating..." : "+ Create performer"}
           </Button>
         </footer>
