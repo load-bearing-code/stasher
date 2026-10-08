@@ -86,6 +86,35 @@ pub struct SiteProfile {
     pub display_name: Option<String>,
     pub photo_url: Option<String>,
     pub remote_id: Option<String>,
+    #[serde(default)]
+    pub bio: Option<String>,
+    #[serde(default)]
+    pub location: Option<String>,
+    /// External links the creator lists on their profile (social accounts).
+    #[serde(default)]
+    pub links: Vec<String>,
+    /// Hashtags found in the profile's bio, without the leading `#`.
+    #[serde(default)]
+    pub tags: Vec<String>,
+}
+
+/// The editable set of values a new Stash performer is created from. Seeded
+/// from a `SiteProfile` by the extension's import wizard, then tweaked by the
+/// user before being sent back.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct PerformerDraft {
+    pub name: String,
+    pub disambiguation: Option<String>,
+    pub aliases: Vec<String>,
+    /// `YYYY-MM-DD`.
+    pub birthdate: Option<String>,
+    pub country: Option<String>,
+    pub details: Option<String>,
+    pub urls: Vec<String>,
+    pub tags: Vec<String>,
+    pub image_url: Option<String>,
 }
 
 /// A performer as known to Stash.
@@ -134,6 +163,10 @@ pub enum HostRequest {
         site: String,
         username: String,
         profile_url: String,
+        /// Skip the desktop app's cached copy of the site profile and fetch
+        /// it fresh.
+        #[serde(default)]
+        refresh: bool,
     },
     /// Free-text performer search (the popup's "search for someone else").
     SearchPerformers {
@@ -145,9 +178,11 @@ pub enum HostRequest {
         performer_id: String,
         profile: SiteProfile,
     },
-    /// Create a new Stash performer from a detected profile.
+    /// Create a new Stash performer from `draft`. `profile` supplies the
+    /// site-specific identity (e.g. the Fansly account id) recorded alongside.
     ImportPerformer {
         profile: SiteProfile,
+        draft: PerformerDraft,
     },
 }
 

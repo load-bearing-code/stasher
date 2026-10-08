@@ -4,7 +4,9 @@ use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use stasher_protocol::{Performer, PerformerCandidate, SiteProfile, StashConfig, StashMetadata};
+use stasher_protocol::{
+    Performer, PerformerCandidate, PerformerDraft, SiteProfile, StashConfig, StashMetadata,
+};
 
 use crate::error::CoreError;
 
@@ -37,8 +39,13 @@ pub trait StashClient: Send + Sync {
     /// else" fallback).
     async fn search_performers(&self, query: &str) -> Result<Vec<PerformerCandidate>, CoreError>;
 
-    /// Creates a new performer from a detected profile.
-    async fn create_performer(&self, profile: &SiteProfile) -> Result<Performer, CoreError>;
+    /// Creates a new performer from `draft`, recording `profile`'s remote id
+    /// in the performer's custom fields.
+    async fn create_performer(
+        &self,
+        profile: &SiteProfile,
+        draft: &PerformerDraft,
+    ) -> Result<Performer, CoreError>;
 
     /// Attaches the profile's URL to an existing performer's URLs, preserving
     /// whatever URLs it already has, and records the profile's remote id in
@@ -113,8 +120,12 @@ impl StashClient for ConfiguredStashClient {
         self.client()?.search_performers(query).await
     }
 
-    async fn create_performer(&self, profile: &SiteProfile) -> Result<Performer, CoreError> {
-        self.client()?.create_performer(profile).await
+    async fn create_performer(
+        &self,
+        profile: &SiteProfile,
+        draft: &PerformerDraft,
+    ) -> Result<Performer, CoreError> {
+        self.client()?.create_performer(profile, draft).await
     }
 
     async fn link_performer(
@@ -240,6 +251,28 @@ struct FindPerformersResult {
 struct FindPerformerData {
     #[serde(rename = "findPerformer")]
     find_performer: Option<GqlPerformer>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GqlTag {
+    id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct FindTagsData {
+    #[serde(rename = "findTags")]
+    find_tags: FindTagsResult,
+}
+
+#[derive(Debug, Deserialize)]
+struct FindTagsResult {
+    tags: Vec<GqlTag>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TagCreateData {
+    #[serde(rename = "tagCreate")]
+    tag_create: Option<GqlTag>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -421,6 +454,36 @@ impl GraphqlStashClient {
             .collect())
     }
 
+    /// Returns the id of the tag named `name` (case-insensitive), creating it
+    /// when Stash doesn't have one yet.
+    async fn ensure_tag(&self, name: &str) -> Result<String, CoreError> {
+        let data: FindTagsData = self
+            .request(
+                "query($tag_filter: TagFilterType, $filter: FindFilterType) { \
+                    findTags(tag_filter: $tag_filter, filter: $filter) { tags { id } } \
+                }",
+                json!({
+                    "tag_filter": { "name": { "value": name, "modifier": "EQUALS" } },
+                    "filter": { "per_page": 1 },
+                }),
+            )
+            .await?;
+        if let Some(tag) = data.find_tags.tags.into_iter().next() {
+            return Ok(tag.id);
+        }
+
+        let created: TagCreateData = self
+            .request(
+                "mutation($input: TagCreateInput!) { tagCreate(input: $input) { id } }",
+                json!({ "input": { "name": name } }),
+            )
+            .await?;
+        created
+            .tag_create
+            .map(|tag| tag.id)
+            .ok_or_else(|| CoreError::Stash("tagCreate returned null".into()))
+    }
+
     async fn find_by_id(&self, id: &str) -> Result<Performer, CoreError> {
         let query = format!(
             "query($id: ID!) {{ findPerformer(id: $id) {{ {PERFORMER_FIELDS} }} }}"
@@ -480,11 +543,16 @@ impl StashClient for GraphqlStashClient {
             .collect())
     }
 
-    async fn create_performer(&self, profile: &SiteProfile) -> Result<Performer, CoreError> {
-        let name = profile
-            .display_name
-            .clone()
-            .unwrap_or_else(|| profile.username.clone());
+    async fn create_performer(
+        &self,
+        profile: &SiteProfile,
+        draft: &PerformerDraft,
+    ) -> Result<Performer, CoreError> {
+        let mut tag_ids = Vec::new();
+        for tag in &draft.tags {
+            tag_ids.push(self.ensure_tag(tag).await?);
+        }
+
         let query = format!(
             "mutation($input: PerformerCreateInput!) {{ \
                 performerCreate(input: $input) {{ {PERFORMER_FIELDS} }} \
@@ -495,9 +563,15 @@ impl StashClient for GraphqlStashClient {
                 &query,
                 json!({
                     "input": {
-                        "name": name,
-                        "urls": [profile.profile_url],
-                        "image": profile.photo_url,
+                        "name": draft.name,
+                        "disambiguation": draft.disambiguation,
+                        "alias_list": draft.aliases,
+                        "birthdate": draft.birthdate,
+                        "country": draft.country,
+                        "details": draft.details,
+                        "urls": draft.urls,
+                        "tag_ids": tag_ids,
+                        "image": draft.image_url,
                         "custom_fields": custom_fields_for(profile),
                     }
                 }),
@@ -573,7 +647,11 @@ impl StashClient for LoggingStashClient {
         Ok(Vec::new())
     }
 
-    async fn create_performer(&self, profile: &SiteProfile) -> Result<Performer, CoreError> {
+    async fn create_performer(
+        &self,
+        profile: &SiteProfile,
+        _draft: &PerformerDraft,
+    ) -> Result<Performer, CoreError> {
         tracing::info!(url = %profile.profile_url, "stash: create_performer (stub)");
         Err(CoreError::NotImplemented("create_performer"))
     }
@@ -603,6 +681,10 @@ mod tests {
             display_name: Some("Sam and Sophie".into()),
             photo_url: Some("https://cdn.example/avatar.png".into()),
             remote_id: Some("123".into()),
+            bio: None,
+            location: None,
+            links: Vec::new(),
+            tags: Vec::new(),
         }
     }
 
@@ -693,6 +775,55 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn create_performer_sends_draft_fields_and_resolves_tags() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/graphql"))
+            .and(body_partial_json(json!({ "variables": { "tag_filter": {} } })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "findTags": { "tags": [{ "id": "5" }] } }
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/graphql"))
+            .and(body_partial_json(json!({ "variables": { "input": {
+                "name": "Mara Vale",
+                "alias_list": ["maravale"],
+                "country": "Portugal",
+                "tag_ids": ["5"],
+                "urls": ["https://fansly.com/wetthefuck"],
+            } } })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "performerCreate": {
+                    "id": "99",
+                    "name": "Mara Vale",
+                    "urls": ["https://fansly.com/wetthefuck"],
+                    "image_path": null,
+                    "alias_list": ["maravale"],
+                    "scene_count": 0
+                } }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = client_for(&server).await;
+        let profile = site_profile("https://fansly.com/wetthefuck");
+        let draft = PerformerDraft {
+            name: "Mara Vale".into(),
+            aliases: vec!["maravale".into()],
+            country: Some("Portugal".into()),
+            urls: vec!["https://fansly.com/wetthefuck".into()],
+            tags: vec!["travel".into()],
+            ..Default::default()
+        };
+        let performer = client.create_performer(&profile, &draft).await.unwrap();
+
+        assert_eq!(performer.id, "99");
+        assert_eq!(performer.name, "Mara Vale");
+    }
+
+    #[tokio::test]
     async fn create_performer_sends_name_url_and_image() {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
@@ -714,7 +845,13 @@ mod tests {
 
         let client = client_for(&server).await;
         let profile = site_profile("https://fansly.com/wetthefuck");
-        let performer = client.create_performer(&profile).await.unwrap();
+        let draft = PerformerDraft {
+            name: "Sam and Sophie".into(),
+            urls: vec![profile.profile_url.clone()],
+            image_url: profile.photo_url.clone(),
+            ..Default::default()
+        };
+        let performer = client.create_performer(&profile, &draft).await.unwrap();
 
         assert_eq!(performer.id, "99");
         assert_eq!(performer.name, "Sam and Sophie");

@@ -66,6 +66,7 @@ impl AppCore {
                 site,
                 username,
                 profile_url,
+                refresh,
             } => {
                 if site != "fansly" {
                     return HostResponse::Error {
@@ -73,7 +74,12 @@ impl AppCore {
                     };
                 }
 
-                let profile = match self.fansly.fetch_profile(&username, &profile_url).await {
+                let fetched = if refresh {
+                    self.fansly.refresh_profile(&username, &profile_url).await
+                } else {
+                    self.fansly.fetch_profile(&username, &profile_url).await
+                };
+                let profile = match fetched {
                     Ok(profile) => profile,
                     Err(err) => {
                         return HostResponse::Error {
@@ -128,8 +134,8 @@ impl AppCore {
                     message: err.to_string(),
                 },
             },
-            HostRequest::ImportPerformer { profile } => {
-                match self.stash.create_performer(&profile).await {
+            HostRequest::ImportPerformer { profile, draft } => {
+                match self.stash.create_performer(&profile, &draft).await {
                     Ok(performer) => HostResponse::PerformerCreated { performer },
                     Err(err) => HostResponse::Error {
                         message: err.to_string(),
@@ -226,6 +232,7 @@ mod tests {
                 site: "onlyfans".into(),
                 username: "someone".into(),
                 profile_url: "https://onlyfans.com/someone".into(),
+                refresh: false,
             })
             .await;
         match response {
@@ -289,6 +296,7 @@ mod tests {
                 site: "fansly".into(),
                 username: "wetthefuck".into(),
                 profile_url: "https://fansly.com/wetthefuck".into(),
+                refresh: false,
             })
             .await;
 

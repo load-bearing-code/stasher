@@ -6,16 +6,12 @@ import type {
   PerformerCandidate,
   SiteProfile,
 } from "@stasher/protocol";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@stasher/ui/components/avatar";
-import { Badge } from "@stasher/ui/components/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@stasher/ui/components/avatar";
 import { Button } from "@stasher/ui/components/button";
 import { Card, CardContent } from "@stasher/ui/components/card";
 import { CheckIcon, RefreshCwIcon, SearchIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import { ImportWizard } from "./ImportWizard";
 
 type Stage =
   | { kind: "loading" }
@@ -73,9 +69,7 @@ function CandidateRow({
       </Avatar>
       <div className="flex-1 overflow-hidden">
         <p className="truncate font-semibold">{candidate.performer.name}</p>
-        <p className="truncate text-xs text-muted-foreground">
-          {candidateReason(candidate)}
-        </p>
+        <p className="truncate text-xs text-muted-foreground">{candidateReason(candidate)}</p>
       </div>
       <Button variant="outline" disabled={linking} onClick={onLink}>
         {linking ? "..." : "Link"}
@@ -84,91 +78,95 @@ function CandidateRow({
   );
 }
 
+async function fetchStatus(): Promise<{
+  connection: ConnectionStatus;
+  stashHost: string | null;
+}> {
+  try {
+    const request: HostRequest = { type: "getStatus" };
+    const response: HostResponse = await browser.runtime.sendMessage(request);
+    if (response.type === "status") {
+      return {
+        connection: response.stashReachable ? "connected" : "disconnected",
+        stashHost: response.stashUrl ? new URL(response.stashUrl).host : null,
+      };
+    }
+    return { connection: "disconnected", stashHost: null };
+  } catch {
+    return { connection: "offline", stashHost: null };
+  }
+}
+
+async function fetchStage(refresh: boolean): Promise<Stage> {
+  const [tab] = await browser.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+  const detected = tab?.url ? matchProfile(tab.url) : null;
+  if (!detected) return { kind: "unsupported" };
+
+  try {
+    const request: HostRequest = {
+      type: "lookupProfile",
+      site: detected.site,
+      username: detected.username,
+      profileUrl: detected.profileUrl,
+      refresh,
+    };
+    const response: HostResponse = await browser.runtime.sendMessage(request);
+    if (response.type === "profileLookup") {
+      return {
+        kind: "ready",
+        profile: response.profile,
+        exactMatch: response.exactMatch,
+        candidates: response.candidates,
+      };
+    }
+    if (response.type === "error") {
+      return response.message.includes("isn't configured")
+        ? { kind: "needsConfig" }
+        : { kind: "error", message: response.message };
+    }
+    return {
+      kind: "error",
+      message: "Unexpected response from the Stasher desktop app.",
+    };
+  } catch {
+    return {
+      kind: "error",
+      message: "Couldn't reach the Stasher desktop app.",
+    };
+  }
+}
+
 export function App() {
   const [connection, setConnection] = useState<ConnectionStatus>("checking");
   const [stashHost, setStashHost] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>({ kind: "loading" });
-  const [importing, setImporting] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [resolved, setResolved] = useState<Resolved | null>(null);
   const [linkingId, setLinkingId] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadStatus() {
-      try {
-        const request: HostRequest = { type: "getStatus" };
-        const response: HostResponse =
-          await browser.runtime.sendMessage(request);
-        if (response.type === "status") {
-          setStashHost(
-            response.stashUrl ? new URL(response.stashUrl).host : null,
-          );
-          setConnection(response.stashReachable ? "connected" : "disconnected");
-        } else {
-          setConnection("disconnected");
-        }
-      } catch {
-        setConnection("offline");
-      }
-    }
-
-    async function loadProfile() {
-      const [tab] = await browser.tabs.query({
-        active: true,
-        currentWindow: true,
-      });
-      const detected = tab?.url ? matchProfile(tab.url) : null;
-      if (!detected) {
-        setStage({ kind: "unsupported" });
-        return;
-      }
-
-      try {
-        const request: HostRequest = {
-          type: "lookupProfile",
-          site: detected.site,
-          username: detected.username,
-          profileUrl: detected.profileUrl,
-        };
-        const response: HostResponse =
-          await browser.runtime.sendMessage(request);
-        if (response.type === "profileLookup") {
-          setStage({
-            kind: "ready",
-            profile: response.profile,
-            exactMatch: response.exactMatch,
-            candidates: response.candidates,
-          });
-        } else if (response.type === "error") {
-          setStage(
-            response.message.includes("isn't configured")
-              ? { kind: "needsConfig" }
-              : { kind: "error", message: response.message },
-          );
-        }
-      } catch {
-        setStage({
-          kind: "error",
-          message: "Couldn't reach the Stasher desktop app.",
-        });
-      }
-    }
-
-    void loadStatus();
-    void loadProfile();
+    void fetchStatus().then((status) => {
+      setConnection(status.connection);
+      setStashHost(status.stashHost);
+    });
+    void fetchStage(false).then(setStage);
   }, []);
 
-  async function createPerformer(profile: SiteProfile) {
-    setImporting(true);
+  async function refresh() {
+    setRefreshing(true);
+    setConnection("checking");
     try {
-      const request: HostRequest = { type: "importPerformer", profile };
-      const response: HostResponse = await browser.runtime.sendMessage(request);
-      if (response.type === "performerCreated") {
-        setResolved({ performer: response.performer, via: "created" });
-      } else if (response.type === "error") {
-        setStage({ kind: "error", message: response.message });
-      }
+      const [status, next] = await Promise.all([fetchStatus(), fetchStage(true)]);
+      setConnection(status.connection);
+      setStashHost(status.stashHost);
+      setResolved(null);
+      setStage(next);
     } finally {
-      setImporting(false);
+      setRefreshing(false);
     }
   }
 
@@ -225,32 +223,36 @@ export function App() {
       </header>
 
       <div className="flex flex-1 flex-col gap-5 p-4">
-        {stage.kind === "loading" && (
-          <p className="text-muted-foreground">Checking this page...</p>
-        )}
+        {stage.kind === "loading" && <p className="text-muted-foreground">Checking this page...</p>}
         {stage.kind === "unsupported" && (
-          <p className="text-muted-foreground">
-            No supported profile detected on this page.
-          </p>
+          <p className="text-muted-foreground">No supported profile detected on this page.</p>
         )}
         {stage.kind === "needsConfig" && (
           <p className="text-muted-foreground">
             Connect to Stash in the desktop app's settings to use this.
           </p>
         )}
-        {stage.kind === "error" && (
-          <p className="text-destructive">{stage.message}</p>
+        {stage.kind === "error" && <p className="text-destructive">{stage.message}</p>}
+
+        {stage.kind === "ready" && wizardOpen && !resolved && (
+          <ImportWizard
+            profile={stage.profile}
+            onCancel={() => setWizardOpen(false)}
+            onCreated={(performer) => {
+              setResolved({ performer, via: "created" });
+              setWizardOpen(false);
+            }}
+            onError={(message) => setStage({ kind: "error", message })}
+          />
         )}
 
-        {stage.kind === "ready" && (
+        {stage.kind === "ready" && !wizardOpen && (
           <>
             <div className="flex items-center gap-4 px-1">
               <Avatar size="lg" className="size-[52px]">
                 <AvatarImage src={stage.profile.photoUrl ?? undefined} />
                 <AvatarFallback className="text-base">
-                  {initials(
-                    stage.profile.displayName ?? stage.profile.username,
-                  )}
+                  {initials(stage.profile.displayName ?? stage.profile.username)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 overflow-hidden">
@@ -261,14 +263,16 @@ export function App() {
                   {stage.profile.site}.com/{stage.profile.username}
                 </p>
               </div>
-              {(resolved || stage.exactMatch) && (
-                <Badge
-                  variant="outline"
-                  className="h-6 bg-secondary px-3 text-xs font-normal text-secondary-foreground"
-                >
-                  In Stash
-                </Badge>
-              )}
+              <Button
+                variant="outline"
+                className="h-7 rounded-full bg-secondary px-3 text-xs font-normal text-secondary-foreground"
+                disabled={refreshing}
+                title="Re-fetch the profile and re-check Stash"
+                onClick={() => void refresh()}
+              >
+                {resolved || stage.exactMatch ? "In Stash" : "Not in Stash"}
+                <RefreshCwIcon className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              </Button>
             </div>
 
             <Card variant="inset" className="gap-0 py-0">
@@ -277,10 +281,7 @@ export function App() {
                   <CheckIcon className="size-5 text-primary" />
                   <p>
                     {resolved.via === "created" ? "Created" : "Linked to"}{" "}
-                    <span className="font-semibold">
-                      {resolved.performer.name}
-                    </span>{" "}
-                    in Stash.
+                    <span className="font-semibold">{resolved.performer.name}</span> in Stash.
                   </p>
                 </CardContent>
               ) : stage.exactMatch ? (
@@ -288,9 +289,7 @@ export function App() {
                   <CheckIcon className="size-5 text-primary" />
                   <div>
                     <p className="font-semibold">Already in your Stash</p>
-                    <p className="text-muted-foreground">
-                      {stage.exactMatch.name}
-                    </p>
+                    <p className="text-muted-foreground">{stage.exactMatch.name}</p>
                   </div>
                 </CardContent>
               ) : (
@@ -298,23 +297,18 @@ export function App() {
                   <SearchIcon className="size-5 shrink-0 text-muted-foreground" />
                   <div className="flex flex-col items-start gap-3">
                     <div>
-                      <p className="text-base font-semibold">
-                        Not in your Stash yet
-                      </p>
+                      <p className="text-base font-semibold">Not in your Stash yet</p>
                       <p className="text-muted-foreground">
                         No performer has this{" "}
-                        {stage.profile.site === "fansly"
-                          ? "Fansly"
-                          : stage.profile.site}{" "}
-                        URL, and no name or alias is an exact match.
+                        {stage.profile.site === "fansly" ? "Fansly" : stage.profile.site} URL, and
+                        no name or alias is an exact match.
                       </p>
                     </div>
                     <Button
                       className="shrink-0 whitespace-nowrap"
-                      disabled={importing}
-                      onClick={() => createPerformer(stage.profile)}
+                      onClick={() => setWizardOpen(true)}
                     >
-                      {importing ? "Creating..." : "+ Create performer"}
+                      + Create performer
                     </Button>
                   </div>
                 </CardContent>
@@ -325,21 +319,14 @@ export function App() {
               <>
                 {stage.candidates.length > 0 && (
                   <div className="flex flex-col gap-3">
-                    <p className="text-sm font-semibold">
-                      Could it be one of these?
-                    </p>
+                    <p className="text-sm font-semibold">Could it be one of these?</p>
                     <Card variant="inset" className="gap-0 divide-y py-0">
                       {stage.candidates.map((candidate) => (
                         <CandidateRow
                           key={candidate.performer.id}
                           candidate={candidate}
                           linking={linkingId === candidate.performer.id}
-                          onLink={() =>
-                            void linkPerformer(
-                              candidate.performer.id,
-                              stage.profile,
-                            )
-                          }
+                          onLink={() => void linkPerformer(candidate.performer.id, stage.profile)}
                         />
                       ))}
                     </Card>
@@ -350,7 +337,6 @@ export function App() {
           </>
         )}
       </div>
-
     </main>
   );
 }

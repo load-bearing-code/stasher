@@ -113,6 +113,7 @@ export default defineBackground(() => {
         site: detected.site,
         username: detected.username,
         profileUrl: detected.profileUrl,
+        refresh: false,
       });
       if (response.type !== "profileLookup") return;
 
@@ -146,11 +147,19 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener((message: HostRequest, _sender, sendResponse) => {
     void enqueue(message).then(async (response) => {
       sendResponse(response);
-      if (response.type === "performerCreated" || response.type === "performerLinked") {
+      const state: BadgeState | undefined =
+        response.type === "performerCreated" || response.type === "performerLinked"
+          ? "inStash"
+          : response.type === "profileLookup"
+            ? response.exactMatch
+              ? "inStash"
+              : "notInStash"
+            : undefined;
+      if (state) {
         const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
         if (tab?.id !== undefined) {
-          if (tab.url) results.set(tab.id, { url: tab.url, state: "inStash" });
-          await setBadge(tab.id, "inStash");
+          if (tab.url) results.set(tab.id, { url: tab.url, state });
+          await setBadge(tab.id, state);
         }
       }
     });

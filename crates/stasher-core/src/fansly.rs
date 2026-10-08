@@ -125,11 +125,21 @@ impl FanslyClient {
             });
         }
 
+        self.refresh_profile(username, profile_url).await
+    }
+
+    /// Like `fetch_profile`, but always hits Fansly and replaces whatever is
+    /// cached for `username`.
+    pub async fn refresh_profile(
+        &self,
+        username: &str,
+        profile_url: &str,
+    ) -> Result<SiteProfile, CoreError> {
         let profile = self.fetch_profile_uncached(username, profile_url).await?;
         let mut cache = self.cache.lock().expect("fansly cache lock poisoned");
         cache.retain(|_, entry| entry.is_fresh());
         cache.insert(
-            key,
+            username.to_lowercase(),
             CachedProfile {
                 fetched_at_secs: now_secs(),
                 profile: profile.clone(),
@@ -165,6 +175,15 @@ impl FanslyClient {
             .and_then(|avatar| avatar.locations.into_iter().next())
             .map(|location| location.location);
 
+        let bio = account.about.filter(|about| !about.trim().is_empty());
+        let tags = bio.as_deref().map(extract_hashtags).unwrap_or_default();
+        let links = account
+            .profile_socials
+            .unwrap_or_default()
+            .iter()
+            .filter_map(social_url)
+            .collect();
+
         Ok(SiteProfile {
             site: "fansly".into(),
             username: account.username,
@@ -172,8 +191,41 @@ impl FanslyClient {
             display_name: account.display_name,
             photo_url,
             remote_id: Some(account.id),
+            bio,
+            location: account.location.filter(|loc| !loc.trim().is_empty()),
+            links,
+            tags,
         })
     }
+}
+
+/// Hashtags in `text` without the `#`, de-duplicated case-insensitively in
+/// order of first appearance.
+fn extract_hashtags(text: &str) -> Vec<String> {
+    let mut tags: Vec<String> = Vec::new();
+    for word in text.split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '#')) {
+        let Some(tag) = word.strip_prefix('#') else {
+            continue;
+        };
+        if tag.is_empty() || tag.contains('#') {
+            continue;
+        }
+        if !tags.iter().any(|existing| existing.eq_ignore_ascii_case(tag)) {
+            tags.push(tag.to_string());
+        }
+    }
+    tags
+}
+
+/// Fansly's social entries are undocumented, so accept any string field that
+/// looks like a URL rather than committing to a field name.
+fn social_url(social: &serde_json::Value) -> Option<String> {
+    social
+        .as_object()?
+        .values()
+        .filter_map(|value| value.as_str())
+        .find(|value| value.starts_with("http://") || value.starts_with("https://"))
+        .map(str::to_string)
 }
 
 #[derive(Debug, Deserialize)]
@@ -188,6 +240,10 @@ struct FanslyAccount {
     #[serde(rename = "displayName")]
     display_name: Option<String>,
     avatar: Option<FanslyMedia>,
+    about: Option<String>,
+    location: Option<String>,
+    #[serde(rename = "profileSocials")]
+    profile_socials: Option<Vec<serde_json::Value>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -245,6 +301,39 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn fetch_profile_maps_bio_location_links_and_tags() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/account"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "success": true,
+                "response": [{
+                    "id": "123",
+                    "username": "SomeUser",
+                    "about": "Hi! #Travel #travel #fitness_life",
+                    "location": "Portugal",
+                    "profileSocials": [
+                        { "providerId": "1", "handle": "https://twitter.com/someuser" },
+                        { "providerId": "2", "handle": "not-a-url" }
+                    ]
+                }]
+            })))
+            .mount(&server)
+            .await;
+
+        let client = FanslyClient::with_base_url(server.uri());
+        let profile = client
+            .fetch_profile("someuser", "https://fansly.com/someuser")
+            .await
+            .unwrap();
+
+        assert_eq!(profile.bio.as_deref(), Some("Hi! #Travel #travel #fitness_life"));
+        assert_eq!(profile.location.as_deref(), Some("Portugal"));
+        assert_eq!(profile.links, vec!["https://twitter.com/someuser"]);
+        assert_eq!(profile.tags, vec!["Travel", "fitness_life"]);
+    }
+
+    #[tokio::test]
     async fn fetch_profile_caches_repeat_lookups() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
@@ -264,6 +353,26 @@ mod tests {
                 .await
                 .unwrap();
         }
+    }
+
+    #[tokio::test]
+    async fn refresh_profile_bypasses_and_updates_cache() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/account"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "success": true,
+                "response": [{ "id": "123", "username": "SomeUser" }]
+            })))
+            .expect(2)
+            .mount(&server)
+            .await;
+
+        let client = FanslyClient::with_base_url(server.uri());
+        let url = "https://fansly.com/someuser";
+        client.fetch_profile("someuser", url).await.unwrap();
+        client.refresh_profile("someuser", url).await.unwrap();
+        client.fetch_profile("someuser", url).await.unwrap();
     }
 
     #[tokio::test]

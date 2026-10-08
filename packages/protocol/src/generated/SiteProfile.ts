@@ -4,4 +4,12 @@
  * A creator profile detected on a supported site (e.g. a Fansly profile
  * page), before it's known whether a matching Stash performer exists.
  */
-export type SiteProfile = { site: string, username: string, profileUrl: string, displayName: string | null, photoUrl: string | null, remoteId: string | null, };
+export type SiteProfile = { site: string, username: string, profileUrl: string, displayName: string | null, photoUrl: string | null, remoteId: string | null, bio: string | null, location: string | null, 
+/**
+ * External links the creator lists on their profile (social accounts).
+ */
+links: Array<string>, 
+/**
+ * Hashtags found in the profile's bio, without the leading `#`.
+ */
+tags: Array<string>, };
