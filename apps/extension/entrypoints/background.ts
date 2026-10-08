@@ -83,6 +83,19 @@ export default defineBackground(() => {
     }
   }
 
+  const LOOKUP_TTL_MS = 5 * 60 * 1000;
+  const lookupCache = new Map<string, { response: HostResponse; at: number }>();
+
+  function getCachedLookup(profileUrl: string): HostResponse | undefined {
+    const entry = lookupCache.get(profileUrl);
+    if (!entry) return undefined;
+    if (Date.now() - entry.at > LOOKUP_TTL_MS) {
+      lookupCache.delete(profileUrl);
+      return undefined;
+    }
+    return entry.response;
+  }
+
   const pendingLookups = new Set<string>();
   // Browsers reset a tab's badge on navigation and fire several tab events per
   // load. Re-applying the known result avoids both a blank flash and repeat lookups.
@@ -116,6 +129,7 @@ export default defineBackground(() => {
         refresh: false,
       });
       if (response.type !== "profileLookup") return;
+      lookupCache.set(detected.profileUrl, { response, at: Date.now() });
 
       // Navigation may have moved on while the lookup was in flight.
       const current = await browser.tabs.get(tabId).catch(() => undefined);
@@ -145,8 +159,21 @@ export default defineBackground(() => {
   });
 
   browser.runtime.onMessage.addListener((message: HostRequest, _sender, sendResponse) => {
+    if (message.type === "lookupProfile" && !message.refresh) {
+      const cached = getCachedLookup(message.profileUrl);
+      if (cached) {
+        sendResponse(cached);
+        return false;
+      }
+    }
+
     void enqueue(message).then(async (response) => {
       sendResponse(response);
+      if (response.type === "performerCreated" || response.type === "performerLinked") {
+        lookupCache.clear();
+      } else if (message.type === "lookupProfile" && response.type === "profileLookup") {
+        lookupCache.set(message.profileUrl, { response, at: Date.now() });
+      }
       const state: BadgeState | undefined =
         response.type === "performerCreated" || response.type === "performerLinked"
           ? "inStash"
