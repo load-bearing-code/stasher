@@ -1,7 +1,7 @@
 import { DatabaseIcon, HardDriveIcon } from "lucide-react";
 import { type ComponentType, useState } from "react";
-import { StashSettings } from "./StashSettings";
-import { StorageSettings } from "./StorageSettings";
+import { StashSettings } from "@/features/settings/stash/stash-settings";
+import { StorageSettings } from "@/features/settings/storage/storage-settings";
 
 const TABS: { id: string; label: string; icon: ComponentType<{ className?: string }>; panel: ComponentType }[] = [
   { id: "stash", label: "Stash", icon: DatabaseIcon, panel: StashSettings },
@@ -16,32 +16,32 @@ function App() {
     <main className="glass-thick flex h-svh flex-col overflow-hidden text-sm">
       <nav
         data-tauri-drag-region
-        className="relative flex justify-center gap-1 border-b px-4 pt-10 pb-4"
+        className="relative flex justify-center gap-0.5 border-b px-3 pt-10 pb-2.5"
       >
         <h1
           data-tauri-drag-region
-          className="absolute inset-x-0 top-0 flex h-8 items-center justify-center text-sm font-medium"
+          className="absolute inset-x-0 top-0 flex h-9 items-center justify-center text-[13px] font-semibold text-secondary-foreground/80"
         >
-          Settings
+          {TABS.find((tab) => tab.id === active)?.label}
         </h1>
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             type="button"
             onClick={() => setActive(id)}
-            className={`flex w-16 cursor-pointer flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-xs transition-colors ${
+            className={`flex w-17 cursor-pointer flex-col items-center gap-1 rounded-lg py-1.5 text-[11px] transition-colors ${
               active === id
-                ? "bg-secondary text-foreground"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-accent text-foreground"
+                : "text-secondary-foreground/80 hover:text-foreground"
             }`}
           >
-            <Icon className="size-4" />
+            <Icon className={`size-[18px] ${active === id ? "text-tint-text" : ""}`} />
             {label}
           </button>
         ))}
       </nav>
       <div className="flex-1 overflow-y-auto overscroll-none">
-        <div className="mx-auto w-full max-w-xl p-6">
+        <div className="mx-auto w-full max-w-xl px-5 py-[18px]">
           <Panel />
         </div>
       </div>
