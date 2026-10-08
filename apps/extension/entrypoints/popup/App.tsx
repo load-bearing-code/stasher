@@ -212,7 +212,7 @@ export function App() {
           : `Desktop app · ${stashHost}`;
 
   return (
-    <main className="flex w-80 flex-col text-sm">
+    <main className="flex w-[400px] flex-col text-sm">
       <header className="flex items-center justify-between gap-2 border-b px-3 py-2.5">
         <div className="flex items-center gap-2 font-semibold">
           <RefreshCwIcon className="size-4 text-primary" />
