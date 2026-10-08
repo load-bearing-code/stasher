@@ -14,8 +14,12 @@ target/
 apps/desktop/src-tauri/target/
 
 # Design prototypes
-.design/
+.design/*
+!.design/.gitkeep
 
 # Env
 .env
 .env.local
+
+.scratch/*
+!.scratch/.gitkeep
