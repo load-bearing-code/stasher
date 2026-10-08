@@ -293,12 +293,12 @@ export function App() {
                   </div>
                 </CardContent>
               ) : (
-                <CardContent className="flex items-center gap-8 rounded-xl border border-dashed p-8">
+                <CardContent className="flex items-center gap-5 rounded-xl border border-dashed p-5">
                   <SearchIcon className="size-5 shrink-0 text-muted-foreground" />
                   <div className="flex flex-col items-start gap-3">
-                    <div>
+                    <div className="flex flex-col gap-1">
                       <p className="text-base font-semibold">Not in your Stash yet</p>
-                      <p className="text-muted-foreground">
+                      <p className="leading-relaxed text-muted-foreground">
                         No performer has this{" "}
                         {stage.profile.site === "fansly" ? "Fansly" : stage.profile.site} URL, and
                         no name or alias is an exact match.

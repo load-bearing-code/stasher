@@ -27,7 +27,7 @@ type FormState = {
 };
 
 const textareaClass =
-  "w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
+  "w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-xs outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
 
 function plural(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
@@ -121,7 +121,7 @@ function StepDots({ step }: { step: 1 | 2 }) {
 function Field({ id, label, children }: { id: string; label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id} className="text-muted-foreground">
+      <Label htmlFor={id} className="text-xs text-muted-foreground">
         {label}
       </Label>
       {children}
@@ -229,7 +229,12 @@ export function ImportWizard({
     return (
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-medium">Choose what to import</h2>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon-sm" aria-label="Back" onClick={onCancel}>
+              <ArrowLeftIcon />
+            </Button>
+            <h2 className="text-sm font-medium">Choose what to import</h2>
+          </div>
           <StepDots step={1} />
         </div>
 
@@ -254,10 +259,6 @@ export function ImportWizard({
         </Card>
 
         <div className="flex items-center justify-between">
-          <Button variant="ghost" onClick={onCancel}>
-            <ArrowLeftIcon />
-            Back
-          </Button>
           <span className="text-muted-foreground">
             {selectedCount} of {options.length} selected
           </span>
@@ -283,7 +284,7 @@ export function ImportWizard({
           >
             <ArrowLeftIcon />
           </Button>
-          <h2 className="text-base font-medium">Review values</h2>
+          <h2 className="text-sm font-medium">Review values</h2>
         </div>
         <StepDots step={2} />
       </div>
@@ -292,7 +293,7 @@ export function ImportWizard({
         Values scraped from Fansly. Change anything before it's written.
       </p>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 [&_input]:text-xs">
         <Field id="wiz-name" label="Name">
           <Input
             id="wiz-name"
