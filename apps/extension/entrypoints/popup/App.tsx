@@ -220,7 +220,7 @@ export function App() {
 
   const dotColor =
     connection === "connected"
-      ? "bg-primary"
+      ? "bg-success"
       : connection === "checking"
         ? "bg-muted-foreground"
         : "bg-destructive";
@@ -231,20 +231,23 @@ export function App() {
         ? "Desktop app offline"
         : connection === "disconnected"
           ? "Stash not connected"
-          : `Desktop app · ${stashHost}`;
+          : "Connected";
 
   return (
-    <main className="flex min-h-[600px] w-[400px] flex-col text-xs">
-      <header className="flex items-center justify-between gap-2 border-b px-5 pt-5 pb-4">
-        <div className="flex items-center gap-3 text-sm font-semibold">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-foreground text-background">
+    <main className="glass-thick flex min-h-[600px] w-[400px] flex-col text-xs">
+      <header className="flex items-center justify-between gap-2 px-4 pt-4 pb-1">
+        <div className="flex items-center gap-3 text-sm font-medium">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-tint-soft text-tint-text">
             <RefreshCwIcon className="size-4" />
           </div>
           Stash Sync
         </div>
-        <div className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium">
+        <div
+          className="flex items-center gap-2 text-xs text-muted-foreground"
+          title={stashHost ?? undefined}
+        >
           <span className={`size-2 rounded-full ${dotColor}`} />
-          {connection === "connected" ? stashHost : statusLabel}
+          {statusLabel}
         </div>
       </header>
 
@@ -268,27 +271,32 @@ export function App() {
 
         {stage.kind === "ready" && (
           <>
-            <Card className="gap-0 divide-y py-0">
-              <CardContent className="flex items-center gap-4 p-5">
-                <Avatar size="lg" className="size-12">
-                  <AvatarImage src={stage.profile.photoUrl ?? undefined} />
-                  <AvatarFallback className="text-sm">
-                    {initials(
-                      stage.profile.displayName ?? stage.profile.username,
-                    )}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 overflow-hidden">
-                  <p className="truncate text-sm font-semibold">
-                    {stage.profile.displayName ?? stage.profile.username}
-                  </p>
-                  <p className="truncate text-muted-foreground">
-                    @{stage.profile.username} · {stage.profile.site}.com
-                  </p>
-                </div>
-                <Badge variant="secondary">Detected</Badge>
-              </CardContent>
+            <div className="flex items-center gap-4 px-1">
+              <Avatar size="lg" className="size-[52px]">
+                <AvatarImage src={stage.profile.photoUrl ?? undefined} />
+                <AvatarFallback className="text-base">
+                  {initials(
+                    stage.profile.displayName ?? stage.profile.username,
+                  )}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 overflow-hidden">
+                <p className="truncate text-lg font-medium">
+                  {stage.profile.displayName ?? stage.profile.username}
+                </p>
+                <p className="truncate font-mono text-xs text-muted-foreground">
+                  {stage.profile.site}.com/{stage.profile.username}
+                </p>
+              </div>
+              <Badge
+                variant="outline"
+                className="h-6 bg-secondary px-3 text-xs font-normal text-secondary-foreground"
+              >
+                {resolved || stage.exactMatch ? "In Stash" : "Not in Stash"}
+              </Badge>
+            </div>
 
+            <Card variant="inset" className="gap-0 py-0">
               {resolved ? (
                 <CardContent className="flex items-center gap-4 p-5">
                   <CheckIcon className="size-5 text-primary" />
@@ -338,7 +346,7 @@ export function App() {
                     <p className="text-sm font-semibold">
                       Could it be one of these?
                     </p>
-                    <Card className="gap-0 divide-y py-0">
+                    <Card variant="inset" className="gap-0 divide-y py-0">
                       {stage.candidates.map((candidate) => (
                         <CandidateRow
                           key={candidate.performer.id}
@@ -419,7 +427,7 @@ export function App() {
       </div>
 
       {stage.kind === "ready" && !stage.exactMatch && !resolved && (
-        <footer className="flex items-center justify-end border-t px-5 py-4">
+        <footer className="flex items-center justify-end border-t px-4 py-3">
           <Button
             className="shrink-0 whitespace-nowrap"
             disabled={importing}
