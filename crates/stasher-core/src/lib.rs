@@ -10,7 +10,7 @@ mod stash;
 pub use error::CoreError;
 pub use ffmpeg::{FfmpegProcessor, NoopFfmpegProcessor};
 pub use nfs::{LocalFsWriter, NfsWriter};
-pub use stash::{LoggingStashClient, StashClient};
+pub use stash::{test_connection, LoggingStashClient, StashClient};
 
 use std::sync::Arc;
 

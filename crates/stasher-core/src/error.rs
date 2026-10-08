@@ -7,4 +7,10 @@ pub enum CoreError {
 
     #[error("not yet implemented: {0}")]
     NotImplemented(&'static str),
+
+    #[error("stash request failed: {0}")]
+    StashRequest(#[from] reqwest::Error),
+
+    #[error("stash error: {0}")]
+    Stash(String),
 }
