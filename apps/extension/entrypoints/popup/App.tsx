@@ -14,7 +14,6 @@ import {
 import { Badge } from "@stasher/ui/components/badge";
 import { Button } from "@stasher/ui/components/button";
 import { Card, CardContent } from "@stasher/ui/components/card";
-import { Input } from "@stasher/ui/components/input";
 import { CheckIcon, RefreshCwIcon, SearchIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -92,13 +91,6 @@ export function App() {
   const [importing, setImporting] = useState(false);
   const [resolved, setResolved] = useState<Resolved | null>(null);
   const [linkingId, setLinkingId] = useState<string | null>(null);
-
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searching, setSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<
-    PerformerCandidate[] | null
-  >(null);
 
   useEffect(() => {
     async function loadStatus() {
@@ -199,25 +191,6 @@ export function App() {
     }
   }
 
-  async function runSearch(query: string) {
-    if (!query.trim()) {
-      setSearchResults(null);
-      return;
-    }
-    setSearching(true);
-    try {
-      const request: HostRequest = { type: "searchPerformers", query };
-      const response: HostResponse = await browser.runtime.sendMessage(request);
-      if (response.type === "performerSearch") {
-        setSearchResults(response.candidates);
-      } else if (response.type === "error") {
-        setStage({ kind: "error", message: response.message });
-      }
-    } finally {
-      setSearching(false);
-    }
-  }
-
   const dotColor =
     connection === "connected"
       ? "bg-success"
@@ -234,7 +207,7 @@ export function App() {
           : "Connected";
 
   return (
-    <main className="glass-thick flex min-h-[600px] w-[400px] flex-col text-xs">
+    <main className="glass-thick flex max-h-[600px] w-[400px] flex-col overflow-y-auto text-xs">
       <header className="flex items-center justify-between gap-2 px-4 pt-4 pb-1">
         <div className="flex items-center gap-3 text-sm font-medium">
           <div className="flex size-8 items-center justify-center rounded-lg bg-tint-soft text-tint-text">
@@ -281,19 +254,21 @@ export function App() {
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 overflow-hidden">
-                <p className="truncate text-lg font-medium">
+                <p className="truncate text-base font-medium">
                   {stage.profile.displayName ?? stage.profile.username}
                 </p>
                 <p className="truncate font-mono text-xs text-muted-foreground">
                   {stage.profile.site}.com/{stage.profile.username}
                 </p>
               </div>
-              <Badge
-                variant="outline"
-                className="h-6 bg-secondary px-3 text-xs font-normal text-secondary-foreground"
-              >
-                {resolved || stage.exactMatch ? "In Stash" : "Not in Stash"}
-              </Badge>
+              {(resolved || stage.exactMatch) && (
+                <Badge
+                  variant="outline"
+                  className="h-6 bg-secondary px-3 text-xs font-normal text-secondary-foreground"
+                >
+                  In Stash
+                </Badge>
+              )}
             </div>
 
             <Card variant="inset" className="gap-0 py-0">
@@ -319,21 +294,28 @@ export function App() {
                   </div>
                 </CardContent>
               ) : (
-                <CardContent className="flex items-start gap-4 p-5">
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-dashed text-muted-foreground">
-                    <SearchIcon className="size-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold">
-                      Not in your Stash yet
-                    </p>
-                    <p className="text-muted-foreground">
-                      No performer has this{" "}
-                      {stage.profile.site === "fansly"
-                        ? "Fansly"
-                        : stage.profile.site}{" "}
-                      URL, and no name or alias is an exact match.
-                    </p>
+                <CardContent className="flex items-center gap-8 rounded-xl border border-dashed p-8">
+                  <SearchIcon className="size-5 shrink-0 text-muted-foreground" />
+                  <div className="flex flex-col items-start gap-3">
+                    <div>
+                      <p className="text-base font-semibold">
+                        Not in your Stash yet
+                      </p>
+                      <p className="text-muted-foreground">
+                        No performer has this{" "}
+                        {stage.profile.site === "fansly"
+                          ? "Fansly"
+                          : stage.profile.site}{" "}
+                        URL, and no name or alias is an exact match.
+                      </p>
+                    </div>
+                    <Button
+                      className="shrink-0 whitespace-nowrap"
+                      disabled={importing}
+                      onClick={() => createPerformer(stage.profile)}
+                    >
+                      {importing ? "Creating..." : "+ Create performer"}
+                    </Button>
                   </div>
                 </CardContent>
               )}
@@ -363,80 +345,12 @@ export function App() {
                     </Card>
                   </div>
                 )}
-
-                {searchOpen ? (
-                  <form
-                    className="flex flex-col gap-2"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      void runSearch(searchQuery);
-                    }}
-                  >
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Performer name"
-                        value={searchQuery}
-                        onChange={(event) => setSearchQuery(event.target.value)}
-                      />
-                      <Button
-                        type="submit"
-                        size="sm"
-                        variant="outline"
-                        disabled={searching}
-                      >
-                        {searching ? "..." : "Search"}
-                      </Button>
-                    </div>
-                    {searchResults && (
-                      <div className="flex flex-col gap-2">
-                        {searchResults.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">
-                            No performers found.
-                          </p>
-                        ) : (
-                          searchResults.map((candidate) => (
-                            <CandidateRow
-                              key={candidate.performer.id}
-                              candidate={candidate}
-                              linking={linkingId === candidate.performer.id}
-                              onLink={() =>
-                                void linkPerformer(
-                                  candidate.performer.id,
-                                  stage.profile,
-                                )
-                              }
-                            />
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </form>
-                ) : (
-                  <button
-                    type="button"
-                    className="self-start border-b border-foreground text-left text-sm font-medium"
-                    onClick={() => setSearchOpen(true)}
-                  >
-                    Search Stash for someone else
-                  </button>
-                )}
               </>
             )}
           </>
         )}
       </div>
 
-      {stage.kind === "ready" && !stage.exactMatch && !resolved && (
-        <footer className="flex items-center justify-end border-t px-4 py-3">
-          <Button
-            className="shrink-0 whitespace-nowrap"
-            disabled={importing}
-            onClick={() => createPerformer(stage.profile)}
-          >
-            {importing ? "Creating..." : "+ Create performer"}
-          </Button>
-        </footer>
-      )}
     </main>
   );
 }
