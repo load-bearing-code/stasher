@@ -1,3 +1,5 @@
+use std::sync::{Arc, RwLock};
+
 use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
@@ -45,6 +47,68 @@ pub trait StashClient: Send + Sync {
         performer_id: &str,
         profile_url: &str,
     ) -> Result<Performer, CoreError>;
+}
+
+/// Builds a `GraphqlStashClient` from whatever `StashConfig` is current,
+/// so `AppCore` can hold one `Arc<dyn StashClient>` for its lifetime even as
+/// the user edits their Stash connection in the desktop app's settings.
+pub struct ConfiguredStashClient {
+    config: Arc<RwLock<Option<StashConfig>>>,
+}
+
+impl ConfiguredStashClient {
+    pub fn new(config: Arc<RwLock<Option<StashConfig>>>) -> Self {
+        Self { config }
+    }
+
+    fn client(&self) -> Result<GraphqlStashClient, CoreError> {
+        self.config
+            .read()
+            .expect("stash config lock poisoned")
+            .clone()
+            .map(GraphqlStashClient::new)
+            .ok_or_else(|| CoreError::Stash("Stash isn't configured yet".into()))
+    }
+}
+
+#[async_trait]
+impl StashClient for ConfiguredStashClient {
+    async fn submit_metadata(&self, metadata: &StashMetadata) -> Result<(), CoreError> {
+        self.client()?.submit_metadata(metadata).await
+    }
+
+    async fn find_exact_performer(
+        &self,
+        profile: &SiteProfile,
+    ) -> Result<Option<Performer>, CoreError> {
+        self.client()?.find_exact_performer(profile).await
+    }
+
+    async fn find_performer_candidates(
+        &self,
+        profile: &SiteProfile,
+        exclude_id: Option<&str>,
+    ) -> Result<Vec<PerformerCandidate>, CoreError> {
+        self.client()?
+            .find_performer_candidates(profile, exclude_id)
+            .await
+    }
+
+    async fn search_performers(&self, query: &str) -> Result<Vec<PerformerCandidate>, CoreError> {
+        self.client()?.search_performers(query).await
+    }
+
+    async fn create_performer(&self, profile: &SiteProfile) -> Result<Performer, CoreError> {
+        self.client()?.create_performer(profile).await
+    }
+
+    async fn link_performer(
+        &self,
+        performer_id: &str,
+        profile_url: &str,
+    ) -> Result<Performer, CoreError> {
+        self.client()?.link_performer(performer_id, profile_url).await
+    }
 }
 
 #[derive(Debug, Deserialize)]

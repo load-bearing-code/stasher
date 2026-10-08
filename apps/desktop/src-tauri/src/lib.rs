@@ -3,7 +3,7 @@ mod ipc;
 
 use std::sync::{Arc, RwLock};
 
-use stasher_core::{AppCore, LocalFsWriter, LoggingStashClient, NoopFfmpegProcessor};
+use stasher_core::{AppCore, ConfiguredStashClient, FanslyClient, LocalFsWriter, NoopFfmpegProcessor};
 use stasher_protocol::{HostRequest, HostResponse, StashConfig};
 use tauri::Manager;
 
@@ -52,15 +52,18 @@ pub fn run() {
         ])
         .setup(|app| {
             let stash_dir = app.path().app_local_data_dir()?.join("stash");
+            let stash_config: SharedStashConfig = Arc::new(RwLock::new(config::load(app.handle())));
+
             let core = Arc::new(AppCore {
                 ffmpeg: Arc::new(NoopFfmpegProcessor),
                 nfs: Arc::new(LocalFsWriter::new(stash_dir)),
-                stash: Arc::new(LoggingStashClient),
+                stash: Arc::new(ConfiguredStashClient::new(stash_config.clone())),
+                stash_config: stash_config.clone(),
+                fansly: Arc::new(FanslyClient::new()),
             });
             app.manage(core.clone());
             ipc::spawn_socket_server(core);
 
-            let stash_config: SharedStashConfig = Arc::new(RwLock::new(config::load(app.handle())));
             app.manage(stash_config);
 
             Ok(())

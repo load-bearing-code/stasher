@@ -28,7 +28,7 @@ impl FanslyClient {
     }
 
     #[cfg(test)]
-    fn with_base_url(base_url: impl Into<String>) -> Self {
+    pub(crate) fn with_base_url(base_url: impl Into<String>) -> Self {
         Self {
             http: reqwest::Client::new(),
             base_url: base_url.into(),
