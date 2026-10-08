@@ -1,7 +1,8 @@
 import { fanslyHandler } from "./fansly";
+import { redgifsHandler } from "./redgifs";
 import type { DetectedPost, DetectedProfile, SiteHandler, SiteInfo } from "./types";
 
-const handlers: SiteHandler[] = [fanslyHandler];
+const handlers: SiteHandler[] = [fanslyHandler, redgifsHandler];
 
 /** Every supported site, as display-facing summaries (the "sources" list). */
 export const sites: SiteInfo[] = handlers.map(({ site, label, host }) => ({ site, label, host }));

@@ -7,7 +7,7 @@ use std::sync::{Arc, RwLock};
 use ipc::ExtensionLastSeen;
 use stasher_core::{
     AppCore, ConfiguredStashClient, FanslyClient, LocalFsWriter, Nfs3Writer, NoopFfmpegProcessor,
-    SourceStatuses, SwitchableWriter,
+    RedgifsClient, SourceStatuses, SwitchableWriter,
 };
 use stasher_protocol::{
     FileLayoutConfig, HostRequest, HostResponse, NfsExport, NfsShareConfig, SourceStatus,
@@ -178,6 +178,7 @@ async fn get_source_statuses(
 ) -> Result<Vec<SourceStatus>, String> {
     let core = core.inner().clone();
     let _ = core.refresh_source_status("fansly").await;
+    let _ = core.refresh_source_status("redgifs").await;
     Ok(core.current_source_statuses())
 }
 
@@ -206,6 +207,7 @@ pub fn run() {
         .setup(|app| {
             let stash_dir = app.path().app_local_data_dir()?.join("stash");
             let fansly_cache = app.path().app_cache_dir()?.join("fansly-profiles.json");
+            let redgifs_cache = app.path().app_cache_dir()?.join("redgifs-profiles.json");
             let stash_config: SharedStashConfig = Arc::new(RwLock::new(config::load(app.handle())));
             let file_layout: SharedFileLayout =
                 Arc::new(RwLock::new(config::load_file_layout(app.handle())));
@@ -234,6 +236,7 @@ pub fn run() {
                 stash_config: stash_config.clone(),
                 file_layout: file_layout.clone(),
                 fansly: Arc::new(FanslyClient::new().with_cache_file(fansly_cache)),
+                redgifs: Arc::new(RedgifsClient::new().with_cache_file(redgifs_cache)),
                 source_statuses,
                 sources_config: sources_config.clone(),
             });

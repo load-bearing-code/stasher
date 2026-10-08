@@ -69,13 +69,21 @@ pub trait StashClient: Send + Sync {
 /// Custom field holding the performer's Fansly account id.
 const FANSLY_USER_ID_FIELD: &str = "fansly_user_id";
 
-/// Custom fields to write for `profile`; empty when it has no Fansly id.
+/// Custom field holding the performer's RedGifs username (RedGifs has no
+/// separate internal account id, so the username doubles as the identifier).
+const REDGIFS_USER_ID_FIELD: &str = "redgifs_user_id";
+
+/// Custom fields to write for `profile`; empty when its site has no custom
+/// field or the profile carries no remote id.
 fn custom_fields_for(profile: &SiteProfile) -> serde_json::Map<String, Value> {
     let mut fields = serde_json::Map::new();
-    if profile.site == "fansly" {
-        if let Some(id) = &profile.remote_id {
-            fields.insert(FANSLY_USER_ID_FIELD.into(), json!(id));
-        }
+    let field = match profile.site.as_str() {
+        "fansly" => Some(FANSLY_USER_ID_FIELD),
+        "redgifs" => Some(REDGIFS_USER_ID_FIELD),
+        _ => None,
+    };
+    if let (Some(field), Some(id)) = (field, &profile.remote_id) {
+        fields.insert(field.into(), json!(id));
     }
     fields
 }

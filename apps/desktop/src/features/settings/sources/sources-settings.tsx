@@ -128,7 +128,7 @@ export function SourcesSettings() {
         title="Sites"
         description="Browser sessions and the performers linked to each supported site"
       >
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col divide-y divide-white/10 rounded-lg border border-white/10 bg-white/[0.035]">
           {sites.map((site) => {
             const enabled = !disabled.has(site.site);
             const source = statusesBySite.get(site.site);
@@ -144,10 +144,7 @@ export function SourcesSettings() {
                 ? `@${account.username} · ${performerSummary}`
                 : performerSummary;
             return (
-              <div
-                key={site.site}
-                className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.035] p-3.5"
-              >
+              <div key={site.site} className="flex items-center gap-3 p-3.5">
                 <div className="flex size-[40px] shrink-0 items-center justify-center rounded-lg border bg-secondary text-sm font-medium text-muted-foreground">
                   {site.label.charAt(0).toUpperCase()}
                 </div>

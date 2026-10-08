@@ -8,6 +8,7 @@ mod ffmpeg;
 mod layout;
 mod nfs;
 mod nfs_client;
+mod redgifs;
 mod stash;
 
 pub use error::CoreError;
@@ -16,6 +17,7 @@ pub use ffmpeg::{FfmpegProcessor, NoopFfmpegProcessor};
 pub use layout::{render_path, MediaName};
 pub use nfs::{LocalFsWriter, NfsWriter};
 pub use nfs_client::{list_exports, Nfs3Writer, SwitchableWriter};
+pub use redgifs::RedgifsClient;
 pub use stash::{
     test_connection, ConfiguredStashClient, GraphqlStashClient, LoggingStashClient, StashClient,
 };
@@ -48,6 +50,7 @@ pub struct AppCore {
     /// empty template) falls back to the legacy `fansly/<id>-<n>` layout.
     pub file_layout: Arc<RwLock<Option<FileLayoutConfig>>>,
     pub fansly: Arc<FanslyClient>,
+    pub redgifs: Arc<RedgifsClient>,
     pub source_statuses: SourceStatuses,
     pub sources_config: Arc<RwLock<Option<SourcesConfig>>>,
 }
@@ -73,6 +76,7 @@ impl AppCore {
     fn source_host(site: &str) -> Option<&'static str> {
         match site {
             "fansly" => Some("https://fansly.com/"),
+            "redgifs" => Some("https://www.redgifs.com/"),
             _ => None,
         }
     }
@@ -348,16 +352,20 @@ impl AppCore {
                 profile_url,
                 refresh,
             } => {
-                if site != "fansly" {
-                    return HostResponse::Error {
-                        message: format!("unsupported site: {site}"),
-                    };
-                }
-
-                let fetched = if refresh {
-                    self.fansly.refresh_profile(&username, &profile_url).await
-                } else {
-                    self.fansly.fetch_profile(&username, &profile_url).await
+                let fetched = match site.as_str() {
+                    "fansly" if refresh => {
+                        self.fansly.refresh_profile(&username, &profile_url).await
+                    }
+                    "fansly" => self.fansly.fetch_profile(&username, &profile_url).await,
+                    "redgifs" if refresh => {
+                        self.redgifs.refresh_profile(&username, &profile_url).await
+                    }
+                    "redgifs" => self.redgifs.fetch_profile(&username, &profile_url).await,
+                    _ => {
+                        return HostResponse::Error {
+                            message: format!("unsupported site: {site}"),
+                        };
+                    }
                 };
                 let profile = match fetched {
                     Ok(profile) => profile,
@@ -517,6 +525,7 @@ mod tests {
             stash_config: Arc::new(RwLock::new(None)),
             file_layout: Arc::new(RwLock::new(None)),
             fansly: Arc::new(FanslyClient::new()),
+            redgifs: Arc::new(RedgifsClient::new()),
             source_statuses: Arc::new(RwLock::new(HashMap::new())),
             sources_config: Arc::new(RwLock::new(None)),
         }
@@ -1183,6 +1192,7 @@ mod tests {
             stash_config,
             file_layout: Arc::new(RwLock::new(None)),
             fansly: Arc::new(FanslyClient::with_base_url(fansly_server.uri())),
+            redgifs: Arc::new(RedgifsClient::new()),
             source_statuses: Arc::new(RwLock::new(HashMap::new())),
             sources_config: Arc::new(RwLock::new(None)),
         };
@@ -1207,6 +1217,48 @@ mod tests {
                 assert!(candidates.is_empty());
             }
             _ => panic!("expected ProfileLookup"),
+        }
+    }
+
+    #[tokio::test]
+    async fn lookup_profile_dispatches_to_redgifs() {
+        let redgifs_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v2/auth/temporary"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "token": "anon-token"
+            })))
+            .mount(&redgifs_server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v2/users/someuser/search"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "gifs": [],
+                "users": [{ "username": "someuser" }]
+            })))
+            .mount(&redgifs_server)
+            .await;
+
+        let core = AppCore {
+            redgifs: Arc::new(RedgifsClient::with_base_url(redgifs_server.uri())),
+            ..test_core()
+        };
+
+        let response = core
+            .handle(HostRequest::LookupProfile {
+                site: "redgifs".into(),
+                username: "someuser".into(),
+                profile_url: "https://www.redgifs.com/users/someuser".into(),
+                refresh: false,
+            })
+            .await;
+
+        match response {
+            HostResponse::ProfileLookup { profile, .. } => {
+                assert_eq!(profile.site, "redgifs");
+                assert_eq!(profile.remote_id.as_deref(), Some("someuser"));
+            }
+            other => panic!("expected ProfileLookup, got {other:?}"),
         }
     }
 }
