@@ -1,4 +1,4 @@
-import type { PostDetails } from "@stasher/protocol";
+import type { PostDetails, SiteProfile } from "@stasher/protocol";
 import { Button } from "@stasher/ui/components/button";
 import { Card, CardContent } from "@stasher/ui/components/card";
 import { CheckIcon, DownloadIcon, FilmIcon, ImageIcon, PlayIcon } from "lucide-react";
@@ -6,6 +6,7 @@ import { useState } from "react";
 import { RefreshButton } from "@/shared/components/RefreshButton";
 import { sendHostRequest } from "@/shared/host";
 import { getFanslyToken } from "../session";
+import { PerformerCard } from "./performer-card";
 
 function formatPostedAt(seconds: number): string {
   const date = new Date(seconds * 1000);
@@ -24,6 +25,8 @@ export function PostStatusCard({
   postUrl,
   inStash,
   post,
+  creator,
+  creatorInStash,
   refreshing,
   onRefresh,
   onError,
@@ -33,12 +36,17 @@ export function PostStatusCard({
   postUrl: string;
   inStash: boolean;
   post: PostDetails | null;
+  creator: SiteProfile | null;
+  creatorInStash: boolean;
   refreshing: boolean;
   onRefresh: () => void;
   onError: (message: string) => void;
 }) {
+  // Imported media is filed under the creator's Stash performer, so block the
+  // import until they're in Stash (the desktop app enforces this too).
+  const blockedOnPerformer = creator !== null && !creatorInStash;
   const [importing, setImporting] = useState(false);
-  const [importedFiles, setImportedFiles] = useState<number | null>(null);
+  const [imported, setImported] = useState<{ files: number; performer: string } | null>(null);
 
   async function importPost() {
     setImporting(true);
@@ -52,7 +60,8 @@ export function PostStatusCard({
         authToken,
       });
       if (response.type === "error") onError(response.message);
-      else if (response.type === "postImported") setImportedFiles(response.files);
+      else if (response.type === "postImported")
+        setImported({ files: response.files, performer: response.performer.name });
     } catch {
       onError("Couldn't reach the Stasher desktop app.");
     } finally {
@@ -90,17 +99,19 @@ export function PostStatusCard({
         </RefreshButton>
       </div>
 
+      {!inStash && creator && <PerformerCard profile={creator} inStash={creatorInStash} />}
+
       <Card variant="inset" className="gap-0 py-0">
         {inStash ? (
           <CardContent className="flex items-center gap-4 p-5">
             <CheckIcon className="size-5 text-primary" />
             <p className="font-semibold">This post is in your Stash</p>
           </CardContent>
-        ) : importedFiles !== null ? (
+        ) : imported !== null ? (
           <CardContent className="flex items-center gap-4 p-5">
             <CheckIcon className="size-5 text-primary" />
             <p className="font-semibold">
-              Saved {importedFiles} {importedFiles === 1 ? "file" : "files"} to your library
+              Saved {imported.files} {imported.files === 1 ? "file" : "files"} to {imported.performer}
             </p>
           </CardContent>
         ) : (
@@ -110,12 +121,14 @@ export function PostStatusCard({
               <div className="flex flex-col gap-1">
                 <p className="text-base font-semibold">Scene not in your Stash</p>
                 <p className="leading-relaxed text-muted-foreground">
-                  No scene has this URL, and no file in your library matches its fingerprint.
+                  {blockedOnPerformer
+                    ? "Add this creator to your Stash as a performer first — imported media is filed under them."
+                    : "No scene has this URL, and no file in your library matches its fingerprint."}
                 </p>
               </div>
               <Button
                 className="shrink-0 whitespace-nowrap"
-                disabled={importing}
+                disabled={importing || blockedOnPerformer}
                 onClick={() => void importPost()}
               >
                 <DownloadIcon className="size-4" />

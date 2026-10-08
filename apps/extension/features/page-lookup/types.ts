@@ -12,6 +12,8 @@ export type Stage =
       postUrl: string;
       inStash: boolean;
       post: PostDetails | null;
+      creator: SiteProfile | null;
+      creatorInStash: boolean;
     }
   | {
       kind: "ready";

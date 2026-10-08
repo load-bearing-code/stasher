@@ -1,3 +1,4 @@
+export type { FileLayoutConfig } from "./generated/FileLayoutConfig";
 export type { HostRequest } from "./generated/HostRequest";
 export type { HostResponse } from "./generated/HostResponse";
 export type { MediaKind } from "./generated/MediaKind";

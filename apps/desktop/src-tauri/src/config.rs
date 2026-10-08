@@ -6,11 +6,12 @@ use std::fs;
 use std::path::PathBuf;
 
 use serde::{de::DeserializeOwned, Serialize};
-use stasher_protocol::{NfsShareConfig, StashConfig};
+use stasher_protocol::{FileLayoutConfig, NfsShareConfig, StashConfig};
 use tauri::{AppHandle, Manager};
 
 const STASH_CONFIG_FILE: &str = "stash-config.json";
 const NFS_CONFIG_FILE: &str = "nfs-share.json";
+const FILE_LAYOUT_FILE: &str = "file-layout.json";
 
 fn config_path(app: &AppHandle, file: &str) -> Result<PathBuf, String> {
     let dir = app.path().app_config_dir().map_err(|err| err.to_string())?;
@@ -53,4 +54,12 @@ pub fn clear_nfs(app: &AppHandle) -> Result<(), String> {
 
 pub fn save_nfs(app: &AppHandle, config: &NfsShareConfig) -> Result<(), String> {
     save_json(app, NFS_CONFIG_FILE, config)
+}
+
+pub fn load_file_layout(app: &AppHandle) -> Option<FileLayoutConfig> {
+    load_json(app, FILE_LAYOUT_FILE)
+}
+
+pub fn save_file_layout(app: &AppHandle, config: &FileLayoutConfig) -> Result<(), String> {
+    save_json(app, FILE_LAYOUT_FILE, config)
 }

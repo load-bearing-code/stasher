@@ -7,12 +7,18 @@ use stasher_core::{
     AppCore, ConfiguredStashClient, FanslyClient, LocalFsWriter, Nfs3Writer, NoopFfmpegProcessor,
     SwitchableWriter,
 };
-use stasher_protocol::{HostRequest, HostResponse, NfsExport, NfsShareConfig, StashConfig};
+use stasher_protocol::{
+    FileLayoutConfig, HostRequest, HostResponse, NfsExport, NfsShareConfig, StashConfig,
+};
 use tauri::Manager;
 
 /// The Stash connection the settings UI reads and writes, shared with the
 /// IPC server so it can be wired into a real `StashClient` once that exists.
 type SharedStashConfig = Arc<RwLock<Option<StashConfig>>>;
+
+/// The filename template the settings UI reads and writes, shared with the
+/// `AppCore` so edits take effect for subsequent imports without a restart.
+type SharedFileLayout = Arc<RwLock<Option<FileLayoutConfig>>>;
 
 struct NfsState {
     config: RwLock<Option<NfsShareConfig>>,
@@ -88,6 +94,22 @@ async fn connect_nfs_share(
 }
 
 #[tauri::command]
+fn get_file_layout(state: tauri::State<'_, SharedFileLayout>) -> Option<FileLayoutConfig> {
+    state.read().expect("file layout lock poisoned").clone()
+}
+
+#[tauri::command]
+fn set_file_layout(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, SharedFileLayout>,
+    config: FileLayoutConfig,
+) -> Result<(), String> {
+    config::save_file_layout(&app, &config)?;
+    *state.write().expect("file layout lock poisoned") = Some(config);
+    Ok(())
+}
+
+#[tauri::command]
 fn disconnect_nfs_share(
     app: tauri::AppHandle,
     state: tauri::State<'_, NfsState>,
@@ -111,12 +133,16 @@ pub fn run() {
             list_nfs_exports,
             list_nfs_dirs,
             connect_nfs_share,
-            disconnect_nfs_share
+            disconnect_nfs_share,
+            get_file_layout,
+            set_file_layout
         ])
         .setup(|app| {
             let stash_dir = app.path().app_local_data_dir()?.join("stash");
             let fansly_cache = app.path().app_cache_dir()?.join("fansly-profiles.json");
             let stash_config: SharedStashConfig = Arc::new(RwLock::new(config::load(app.handle())));
+            let file_layout: SharedFileLayout =
+                Arc::new(RwLock::new(config::load_file_layout(app.handle())));
 
             let writer = Arc::new(SwitchableWriter::new(LocalFsWriter::new(stash_dir)));
             let nfs_config = config::load_nfs(app.handle());
@@ -136,12 +162,14 @@ pub fn run() {
                 nfs: writer,
                 stash: Arc::new(ConfiguredStashClient::new(stash_config.clone())),
                 stash_config: stash_config.clone(),
+                file_layout: file_layout.clone(),
                 fansly: Arc::new(FanslyClient::new().with_cache_file(fansly_cache)),
             });
             app.manage(core.clone());
             ipc::spawn_socket_server(core);
 
             app.manage(stash_config);
+            app.manage(file_layout);
 
             Ok(())
         })

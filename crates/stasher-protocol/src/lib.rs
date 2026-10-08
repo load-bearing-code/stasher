@@ -86,6 +86,16 @@ pub struct NfsShareConfig {
     pub media_path: String,
 }
 
+/// How downloaded files are named and foldered, persisted by the desktop app
+/// (see `apps/desktop/src-tauri/src/config.rs`). `template` is a filename
+/// pattern with `{token}` placeholders (see the file-layout builder UI).
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct FileLayoutConfig {
+    pub template: String,
+}
+
 /// One export advertised by an NFS server, discovered when the desktop app
 /// polls a typed-in server address.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -274,11 +284,18 @@ pub enum HostResponse {
         /// Only populated when the post isn't in Stash and the site lookup
         /// succeeded.
         post: Option<PostDetails>,
+        /// The post's creator, when it could be resolved, so the popup can
+        /// show who the media would be filed under.
+        creator: Option<SiteProfile>,
+        /// Whether that creator already exists as a Stash performer.
+        creator_in_stash: bool,
     },
     PostImported {
         post_url: String,
         /// How many media files were written to the library.
         files: u32,
+        /// The Stash performer the imported media was associated with.
+        performer: Performer,
     },
     PerformerSearch {
         candidates: Vec<PerformerCandidate>,

@@ -2,7 +2,7 @@ import { RefreshCwIcon } from "lucide-react";
 import { ImportWizard } from "@/features/import-performer/ImportWizard";
 import { StageMessage } from "@/features/page-lookup/components/StageMessage";
 import { usePageStage } from "@/features/page-lookup/use-page-stage";
-import { PostStatusCard } from "@/features/post/components/PostStatusCard";
+import { PostStatusCard } from "@/features/post/components/post-status-card";
 import { CandidateList } from "@/features/profile/components/CandidateList";
 import { OpenInStashButton } from "@/features/profile/components/OpenInStashButton";
 import { ProfileHeader } from "@/features/profile/components/ProfileHeader";
@@ -44,6 +44,8 @@ export function App() {
             postUrl={stage.postUrl}
             inStash={stage.inStash}
             post={stage.post}
+            creator={stage.creator}
+            creatorInStash={stage.creatorInStash}
             refreshing={refreshing}
             onRefresh={() => void refresh()}
             onError={(message) => setStage({ kind: "error", message })}

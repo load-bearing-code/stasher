@@ -173,14 +173,13 @@ impl FanslyClient {
         Ok(envelope.response)
     }
 
-    /// Fetches a post's caption and timestamp. The caption becomes the title.
-    pub async fn fetch_post(&self, post_id: &str) -> Result<PostDetails, CoreError> {
-        let FanslyPosts {
-            posts,
-            account_media,
-            ..
-        } = self.fetch_post_response(post_id, None).await?;
-        let mimetypes: Vec<&str> = account_media
+    /// Fetches a post's display details (caption, timestamp, media kind) plus
+    /// its creator's account id, from a single request. The caption becomes
+    /// the title; the account id ties the post to a Stash performer.
+    pub async fn fetch_post(&self, post_id: &str) -> Result<PostLookupInfo, CoreError> {
+        let response = self.fetch_post_response(post_id, None).await?;
+        let mimetypes: Vec<&str> = response
+            .account_media
             .iter()
             .filter_map(|entry| entry.media.as_ref()?.mimetype.as_deref())
             .collect();
@@ -192,15 +191,19 @@ impl FanslyClient {
             None
         };
 
-        let post = posts.into_iter().next().expect("checked non-empty");
+        let post = response.posts.first().expect("checked non-empty");
         let title = post
             .content
+            .as_ref()
             .map(|content| content.trim().to_string())
             .filter(|content| !content.is_empty());
-        Ok(PostDetails {
-            title,
-            posted_at: post.created_at,
-            media_kind,
+        Ok(PostLookupInfo {
+            details: PostDetails {
+                title,
+                posted_at: post.created_at,
+                media_kind,
+            },
+            account_id: post.account_id.clone().filter(|id| !id.is_empty()),
         })
     }
 
@@ -214,43 +217,31 @@ impl FanslyClient {
         post_id: &str,
         auth_token: Option<&str>,
     ) -> Result<Vec<PostImage>, CoreError> {
-        let FanslyPosts {
-            posts,
-            account_media,
-            account_media_bundles,
-        } = self.fetch_post_response(post_id, auth_token).await?;
-        let post = posts.into_iter().next().expect("checked non-empty");
+        let response = self.fetch_post_response(post_id, auth_token).await?;
+        select_images(&response)
+    }
 
-        // An attachment's `contentId` is either a single media item or a
-        // bundle of them.
-        let ordered: Vec<&FanslyAccountMedia> = if post.attachments.is_empty() {
-            account_media.iter().collect()
-        } else {
-            let ids = post.attachments.iter().flat_map(|attachment| {
-                match account_media_bundles
-                    .iter()
-                    .find(|bundle| bundle.id == attachment.content_id)
-                {
-                    Some(bundle) => bundle.account_media_ids.iter().map(String::as_str).collect(),
-                    None => vec![attachment.content_id.as_str()],
-                }
-            });
-            ids.filter_map(|id| account_media.iter().find(|entry| entry.id == id))
-                .collect()
-        };
-
-        let images: Vec<PostImage> = ordered
-            .iter()
-            .filter_map(|entry| best_image(entry.media.as_ref()?))
-            .collect();
-        if images.is_empty() && !ordered.is_empty() {
-            return Err(CoreError::Stash(
-                "this post's media is locked (subscribers or buyers only), so Fansly \
-                 gave no download links"
-                    .into(),
-            ));
-        }
-        Ok(images)
+    /// Everything the import flow needs from one post fetch: the downloadable
+    /// images plus the context (creator account, caption, timestamp) used to
+    /// tie the media to a Stash performer and name the files.
+    pub async fn fetch_post_import(
+        &self,
+        post_id: &str,
+        auth_token: Option<&str>,
+    ) -> Result<PostImport, CoreError> {
+        let response = self.fetch_post_response(post_id, auth_token).await?;
+        let images = select_images(&response)?;
+        let post = response.posts.first().expect("checked non-empty");
+        Ok(PostImport {
+            account_id: post.account_id.clone().filter(|id| !id.is_empty()),
+            title: post
+                .content
+                .as_ref()
+                .map(|content| content.trim().to_string())
+                .filter(|content| !content.is_empty()),
+            posted_at: post.created_at,
+            images,
+        })
     }
 
     pub async fn download(&self, url: &str) -> Result<Vec<u8>, CoreError> {
@@ -270,48 +261,73 @@ impl FanslyClient {
         username: &str,
         profile_url: &str,
     ) -> Result<SiteProfile, CoreError> {
+        let account = self
+            .fetch_account(&[("usernames", username)])
+            .await?
+            .ok_or_else(|| CoreError::Stash(format!("fansly: no account named '{username}'")))?;
+        Ok(account_to_profile(account, profile_url))
+    }
+
+    /// Resolves a Fansly account by its id into a `SiteProfile`, used to tie a
+    /// post (which carries only the creator's account id) back to a creator
+    /// and, through it, a Stash performer. The profile URL is derived from the
+    /// account's username.
+    pub async fn fetch_account_by_id(&self, account_id: &str) -> Result<SiteProfile, CoreError> {
+        let account = self
+            .fetch_account(&[("ids", account_id)])
+            .await?
+            .ok_or_else(|| CoreError::Stash(format!("fansly: no account with id '{account_id}'")))?;
+        let profile_url = format!("https://fansly.com/{}", account.username);
+        Ok(account_to_profile(account, &profile_url))
+    }
+
+    /// GETs `/api/v1/account` with the given query (`usernames=` or `ids=`)
+    /// and returns the first account, if any.
+    async fn fetch_account(
+        &self,
+        query: &[(&str, &str)],
+    ) -> Result<Option<FanslyAccount>, CoreError> {
         let url = format!("{}/api/v1/account", self.base_url);
         let envelope: FanslyEnvelope = self
             .http
             .get(url)
-            .query(&[("usernames", username)])
+            .query(query)
             .send()
             .await?
             .error_for_status()?
             .json()
             .await?;
+        Ok(envelope.response.into_iter().next())
+    }
+}
 
-        let account =
-            envelope.response.into_iter().next().ok_or_else(|| {
-                CoreError::Stash(format!("fansly: no account named '{username}'"))
-            })?;
+/// Maps a Fansly account onto a `SiteProfile` for `profile_url`.
+fn account_to_profile(account: FanslyAccount, profile_url: &str) -> SiteProfile {
+    let photo_url = account
+        .avatar
+        .and_then(|avatar| avatar.locations.into_iter().next())
+        .map(|location| location.location);
 
-        let photo_url = account
-            .avatar
-            .and_then(|avatar| avatar.locations.into_iter().next())
-            .map(|location| location.location);
+    let bio = account.about.filter(|about| !about.trim().is_empty());
+    let tags = bio.as_deref().map(extract_hashtags).unwrap_or_default();
+    let links = account
+        .profile_socials
+        .unwrap_or_default()
+        .iter()
+        .filter_map(social_url)
+        .collect();
 
-        let bio = account.about.filter(|about| !about.trim().is_empty());
-        let tags = bio.as_deref().map(extract_hashtags).unwrap_or_default();
-        let links = account
-            .profile_socials
-            .unwrap_or_default()
-            .iter()
-            .filter_map(social_url)
-            .collect();
-
-        Ok(SiteProfile {
-            site: "fansly".into(),
-            username: account.username,
-            profile_url: profile_url.to_string(),
-            display_name: account.display_name,
-            photo_url,
-            remote_id: Some(account.id),
-            bio,
-            location: account.location.filter(|loc| !loc.trim().is_empty()),
-            links,
-            tags,
-        })
+    SiteProfile {
+        site: "fansly".into(),
+        username: account.username,
+        profile_url: profile_url.to_string(),
+        display_name: account.display_name,
+        photo_url,
+        remote_id: Some(account.id),
+        bio,
+        location: account.location.filter(|loc| !loc.trim().is_empty()),
+        links,
+        tags,
     }
 }
 
@@ -385,6 +401,10 @@ struct FanslyMediaFile {
 
 #[derive(Debug, Deserialize)]
 struct FanslyPost {
+    /// The creator's Fansly account id. Matched against the `fansly_user_id`
+    /// custom field on Stash performers to tie imported media to a performer.
+    #[serde(rename = "accountId", default)]
+    account_id: Option<String>,
     content: Option<String>,
     #[serde(rename = "createdAt")]
     created_at: Option<u32>,
@@ -396,6 +416,68 @@ struct FanslyPost {
 struct FanslyAttachment {
     #[serde(rename = "contentId")]
     content_id: String,
+}
+
+/// A post's display details plus its creator's account id, from one lookup
+/// fetch (no auth, so it works before the user commits to importing).
+#[derive(Debug, Clone)]
+pub struct PostLookupInfo {
+    pub details: PostDetails,
+    /// The creator's Fansly account id, used to resolve the Stash performer.
+    pub account_id: Option<String>,
+}
+
+/// A post resolved for import: its downloadable images plus the context used
+/// to associate the media with a Stash performer and name the files.
+#[derive(Debug, Clone)]
+pub struct PostImport {
+    /// The creator's Fansly account id, used to find the matching Stash
+    /// performer. `None` when the post response didn't carry one.
+    pub account_id: Option<String>,
+    /// The post caption, used as the title token.
+    pub title: Option<String>,
+    /// Post timestamp in Unix seconds, used as the date token.
+    pub posted_at: Option<u32>,
+    pub images: Vec<PostImage>,
+}
+
+/// Picks the best image for each of a post's attachments, in attachment
+/// order, expanding bundles. Errors when a post has attachments but none
+/// yielded a download link (locked content).
+fn select_images(data: &FanslyPosts) -> Result<Vec<PostImage>, CoreError> {
+    let post = data.posts.first().expect("checked non-empty");
+
+    // An attachment's `contentId` is either a single media item or a bundle
+    // of them.
+    let ordered: Vec<&FanslyAccountMedia> = if post.attachments.is_empty() {
+        data.account_media.iter().collect()
+    } else {
+        let ids = post.attachments.iter().flat_map(|attachment| {
+            match data
+                .account_media_bundles
+                .iter()
+                .find(|bundle| bundle.id == attachment.content_id)
+            {
+                Some(bundle) => bundle.account_media_ids.iter().map(String::as_str).collect(),
+                None => vec![attachment.content_id.as_str()],
+            }
+        });
+        ids.filter_map(|id| data.account_media.iter().find(|entry| entry.id == id))
+            .collect()
+    };
+
+    let images: Vec<PostImage> = ordered
+        .iter()
+        .filter_map(|entry| best_image(entry.media.as_ref()?))
+        .collect();
+    if images.is_empty() && !ordered.is_empty() {
+        return Err(CoreError::Stash(
+            "this post's media is locked (subscribers or buyers only), so Fansly \
+             gave no download links"
+                .into(),
+        ));
+    }
+    Ok(images)
 }
 
 /// One downloadable image, already resolved to the best available variant.

@@ -41,6 +41,8 @@ export async function fetchStage(refresh: boolean): Promise<Stage> {
         postUrl: response.postUrl,
         inStash: response.inStash,
         post: response.post,
+        creator: response.creator,
+        creatorInStash: response.creatorInStash,
       };
     }
     if (response.type === "profileLookup") {

@@ -72,18 +72,6 @@ export const SAMPLE: Record<TokenKey, string> = {
   extension: "mp4",
 };
 
-export interface Preset {
-  label: string;
-  template: string;
-}
-
-export const PRESETS: Preset[] = [
-  { label: "By performer", template: "{performer}/{date} – {title}.{extension}" },
-  { label: "By site", template: "{site}/{performer}/{title} [{id}].{extension}" },
-  { label: "By date", template: "{date} {performer} – {title}.{extension}" },
-  { label: "Flat", template: "{date} {performer} – {title} [{resolution}].{extension}" },
-];
-
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 // Apply a format variant to a raw token value.
