@@ -9,6 +9,7 @@ package gql
 import (
 	"github.com/load-bearing-code/stasher/api/internal/page"
 	"github.com/load-bearing-code/stasher/api/internal/performers"
+	"github.com/load-bearing-code/stasher/api/internal/platformaccounts"
 	"github.com/load-bearing-code/stasher/api/internal/platforms"
 	"github.com/load-bearing-code/stasher/api/internal/studios"
 )
@@ -22,4 +23,7 @@ type (
 
 	PerformerConnection = page.Connection[*performers.Performer]
 	PerformerEdge       = page.Edge[*performers.Performer]
+
+	PlatformAccountConnection = page.Connection[*platformaccounts.PlatformAccount]
+	PlatformAccountEdge       = page.Edge[*platformaccounts.PlatformAccount]
 )

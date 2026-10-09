@@ -231,6 +231,34 @@ func (r *Repository) attachAliases(ctx context.Context, rows []*Performer) error
 	return nil
 }
 
+// ListByIDs returns the performers matching ids, in no particular order
+// and omitting any id with no matching row. It's the batch fetch a
+// dataloader collapses many per-row Performer lookups into. Soft-deleted
+// rows are excluded.
+func (r *Repository) ListByIDs(ctx context.Context, ids []string) ([]*Performer, error) {
+	idBytes := make([][]byte, len(ids))
+	for i, id := range ids {
+		performerID, err := uuid.Parse(id)
+		if err != nil {
+			return nil, fmt.Errorf("performers: invalid id %q: %w", id, err)
+		}
+		idBytes[i] = performerID[:]
+	}
+
+	var rows []*Performer
+	query, args, err := sqlx.In(`SELECT `+selectColumns+` FROM performers WHERE deleted_at IS NULL AND id IN (?)`, idBytes)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.db.SelectContext(ctx, &rows, r.db.Rebind(query), args...); err != nil {
+		return nil, err
+	}
+	if err := r.attachAliases(ctx, rows); err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 // insertAliases inserts aliases for performerID within tx.
 func insertAliases(ctx context.Context, tx *sqlx.Tx, performerID uuid.UUID, aliases []string) error {
 	for _, alias := range aliases {

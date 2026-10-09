@@ -60,3 +60,18 @@ func (s *Service) Get(ctx context.Context, id, name *string) (*Performer, error)
 func (s *Service) Delete(ctx context.Context, id string) (bool, error) {
 	return s.repo.Delete(ctx, id)
 }
+
+// GetByIDs returns the performers matching ids, keyed by id. An id with
+// no matching row is simply absent from the map, letting callers (e.g. a
+// dataloader) decide how to treat a miss.
+func (s *Service) GetByIDs(ctx context.Context, ids []string) (map[string]Performer, error) {
+	rows, err := s.repo.ListByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[string]Performer, len(rows))
+	for _, row := range rows {
+		byID[row.ID()] = *row
+	}
+	return byID, nil
+}

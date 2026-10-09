@@ -19,6 +19,7 @@ import (
 	"github.com/load-bearing-code/stasher/api/internal/performers"
 	"github.com/load-bearing-code/stasher/api/internal/pkg/config"
 	"github.com/load-bearing-code/stasher/api/internal/pkg/logging"
+	"github.com/load-bearing-code/stasher/api/internal/platformaccounts"
 	"github.com/load-bearing-code/stasher/api/internal/platforms"
 	"github.com/load-bearing-code/stasher/api/internal/studios"
 )
@@ -58,9 +59,10 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	db.SetMaxOpenConns(1)
 
 	services := &service.Services{
-		Platforms:  platforms.New(db),
-		Studios:    studios.New(db),
-		Performers: performers.New(db),
+		Platforms:        platforms.New(db),
+		Studios:          studios.New(db),
+		Performers:       performers.New(db),
+		PlatformAccounts: platformaccounts.New(db),
 	}
 
 	handler := api.NewRouter(services, cfg.APIKey)

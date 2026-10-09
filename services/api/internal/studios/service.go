@@ -52,3 +52,18 @@ func (s *Service) Update(ctx context.Context, id, name string) (*Studio, error) 
 func (s *Service) Get(ctx context.Context, id, name *string) (*Studio, error) {
 	return s.repo.Get(ctx, id, name)
 }
+
+// GetByIDs returns the studios matching ids, keyed by id. An id with no
+// matching row is simply absent from the map, letting callers (e.g. a
+// dataloader) decide how to treat a miss.
+func (s *Service) GetByIDs(ctx context.Context, ids []string) (map[string]Studio, error) {
+	rows, err := s.repo.ListByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[string]Studio, len(rows))
+	for _, row := range rows {
+		byID[row.ID] = row
+	}
+	return byID, nil
+}

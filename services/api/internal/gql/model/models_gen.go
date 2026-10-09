@@ -8,6 +8,15 @@ type CreatePerformerInput struct {
 	Aliases        []string `json:"aliases,omitempty"`
 }
 
+type CreatePlatformAccountInput struct {
+	PlatformID     string   `json:"platformId"`
+	PlatformUserID *string  `json:"platformUserId,omitempty"`
+	Handle         string   `json:"handle"`
+	Bio            *string  `json:"bio,omitempty"`
+	StudioID       *string  `json:"studioId,omitempty"`
+	PerformerIds   []string `json:"performerIds,omitempty"`
+}
+
 type CreatePlatformInput struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
@@ -22,6 +31,10 @@ type DeletePerformerInput struct {
 	ID string `json:"id"`
 }
 
+type DeletePlatformAccountInput struct {
+	ID string `json:"id"`
+}
+
 type Mutation struct {
 }
 
@@ -33,6 +46,16 @@ type UpdatePerformerInput struct {
 	Name           string   `json:"name"`
 	Disambiguation *string  `json:"disambiguation,omitempty"`
 	Aliases        []string `json:"aliases,omitempty"`
+}
+
+type UpdatePlatformAccountInput struct {
+	ID             string   `json:"id"`
+	PlatformID     string   `json:"platformId"`
+	PlatformUserID *string  `json:"platformUserId,omitempty"`
+	Handle         string   `json:"handle"`
+	Bio            *string  `json:"bio,omitempty"`
+	StudioID       *string  `json:"studioId,omitempty"`
+	PerformerIds   []string `json:"performerIds,omitempty"`
 }
 
 type UpdatePlatformInput struct {

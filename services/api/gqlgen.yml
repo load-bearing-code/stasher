@@ -55,3 +55,12 @@ models:
   PerformerEdge:
     model:
       - github.com/load-bearing-code/stasher/api/internal/gql.PerformerEdge
+  PlatformAccount:
+    model:
+      - github.com/load-bearing-code/stasher/api/internal/platformaccounts.PlatformAccount
+  PlatformAccountConnection:
+    model:
+      - github.com/load-bearing-code/stasher/api/internal/gql.PlatformAccountConnection
+  PlatformAccountEdge:
+    model:
+      - github.com/load-bearing-code/stasher/api/internal/gql.PlatformAccountEdge

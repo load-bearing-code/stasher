@@ -7,7 +7,9 @@ import (
 	"github.com/vikstrous/dataloadgen"
 
 	"github.com/load-bearing-code/stasher/api/internal"
+	"github.com/load-bearing-code/stasher/api/internal/performers"
 	"github.com/load-bearing-code/stasher/api/internal/platforms"
+	"github.com/load-bearing-code/stasher/api/internal/studios"
 )
 
 // Loaders batches and caches the by-id lookups resolvers make while
@@ -16,12 +18,16 @@ import (
 // of one query per row. A fresh set is built per request (see
 // LoadersMiddleware) so caches never leak across requests.
 type Loaders struct {
-	Platform *dataloadgen.Loader[string, platforms.Platform]
+	Platform  *dataloadgen.Loader[string, platforms.Platform]
+	Studio    *dataloadgen.Loader[string, studios.Studio]
+	Performer *dataloadgen.Loader[string, performers.Performer]
 }
 
 func newLoaders(services *service.Services) *Loaders {
 	return &Loaders{
-		Platform: dataloadgen.NewMappedLoader(services.Platforms.GetByIDs),
+		Platform:  dataloadgen.NewMappedLoader(services.Platforms.GetByIDs),
+		Studio:    dataloadgen.NewMappedLoader(services.Studios.GetByIDs),
+		Performer: dataloadgen.NewMappedLoader(services.Performers.GetByIDs),
 	}
 }
 

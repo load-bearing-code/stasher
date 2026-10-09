@@ -16,6 +16,7 @@ import (
 	"github.com/load-bearing-code/stasher/api/internal/gql/model"
 	"github.com/load-bearing-code/stasher/api/internal/page"
 	"github.com/load-bearing-code/stasher/api/internal/performers"
+	"github.com/load-bearing-code/stasher/api/internal/platformaccounts"
 	"github.com/load-bearing-code/stasher/api/internal/platforms"
 	"github.com/load-bearing-code/stasher/api/internal/studios"
 	gqlparser "github.com/vektah/gqlparser/v2"
@@ -33,6 +34,7 @@ type Config = graphql.Config[ResolverRoot, DirectiveRoot, ComplexityRoot]
 
 type ResolverRoot interface {
 	Mutation() MutationResolver
+	PlatformAccount() PlatformAccountResolver
 	Query() QueryResolver
 }
 
@@ -41,13 +43,16 @@ type DirectiveRoot struct {
 
 type ComplexityRoot struct {
 	Mutation struct {
-		CreatePerformer func(childComplexity int, input model.CreatePerformerInput) int
-		CreatePlatform  func(childComplexity int, input model.CreatePlatformInput) int
-		CreateStudio    func(childComplexity int, input model.CreateStudioInput) int
-		DeletePerformer func(childComplexity int, input model.DeletePerformerInput) int
-		UpdatePerformer func(childComplexity int, input model.UpdatePerformerInput) int
-		UpdatePlatform  func(childComplexity int, input model.UpdatePlatformInput) int
-		UpdateStudio    func(childComplexity int, input model.UpdateStudioInput) int
+		CreatePerformer       func(childComplexity int, input model.CreatePerformerInput) int
+		CreatePlatform        func(childComplexity int, input model.CreatePlatformInput) int
+		CreatePlatformAccount func(childComplexity int, input model.CreatePlatformAccountInput) int
+		CreateStudio          func(childComplexity int, input model.CreateStudioInput) int
+		DeletePerformer       func(childComplexity int, input model.DeletePerformerInput) int
+		DeletePlatformAccount func(childComplexity int, input model.DeletePlatformAccountInput) int
+		UpdatePerformer       func(childComplexity int, input model.UpdatePerformerInput) int
+		UpdatePlatform        func(childComplexity int, input model.UpdatePlatformInput) int
+		UpdatePlatformAccount func(childComplexity int, input model.UpdatePlatformAccountInput) int
+		UpdateStudio          func(childComplexity int, input model.UpdateStudioInput) int
 	}
 
 	PageInfo struct {
@@ -82,6 +87,29 @@ type ComplexityRoot struct {
 		Name func(childComplexity int) int
 	}
 
+	PlatformAccount struct {
+		Bio            func(childComplexity int) int
+		CreatedAt      func(childComplexity int) int
+		Handle         func(childComplexity int) int
+		ID             func(childComplexity int) int
+		Performers     func(childComplexity int) int
+		Platform       func(childComplexity int) int
+		PlatformUserID func(childComplexity int) int
+		Studio         func(childComplexity int) int
+		UpdatedAt      func(childComplexity int) int
+	}
+
+	PlatformAccountConnection struct {
+		Edges      func(childComplexity int) int
+		PageInfo   func(childComplexity int) int
+		TotalCount func(childComplexity int) int
+	}
+
+	PlatformAccountEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
+	}
+
 	PlatformConnection struct {
 		Edges      func(childComplexity int) int
 		PageInfo   func(childComplexity int) int
@@ -94,13 +122,15 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Performer  func(childComplexity int, id *string, name *string) int
-		Performers func(childComplexity int, first *int, after *string) int
-		Platform   func(childComplexity int, id *string, name *string) int
-		Platforms  func(childComplexity int, first *int, after *string) int
-		Studio     func(childComplexity int, id *string, name *string) int
-		Studios    func(childComplexity int, first *int, after *string) int
-		Version    func(childComplexity int) int
+		Performer        func(childComplexity int, id *string, name *string) int
+		Performers       func(childComplexity int, first *int, after *string) int
+		Platform         func(childComplexity int, id *string, name *string) int
+		PlatformAccount  func(childComplexity int, id *string, platformID *string, handle *string) int
+		PlatformAccounts func(childComplexity int, first *int, after *string, platformID *string, performerID *string) int
+		Platforms        func(childComplexity int, first *int, after *string) int
+		Studio           func(childComplexity int, id *string, name *string) int
+		Studios          func(childComplexity int, first *int, after *string) int
+		Version          func(childComplexity int) int
 	}
 
 	Studio struct {
@@ -134,8 +164,17 @@ type MutationResolver interface {
 	CreatePerformer(ctx context.Context, input model.CreatePerformerInput) (*performers.Performer, error)
 	UpdatePerformer(ctx context.Context, input model.UpdatePerformerInput) (*performers.Performer, error)
 	DeletePerformer(ctx context.Context, input model.DeletePerformerInput) (bool, error)
+	CreatePlatformAccount(ctx context.Context, input model.CreatePlatformAccountInput) (*platformaccounts.PlatformAccount, error)
+	UpdatePlatformAccount(ctx context.Context, input model.UpdatePlatformAccountInput) (*platformaccounts.PlatformAccount, error)
+	DeletePlatformAccount(ctx context.Context, input model.DeletePlatformAccountInput) (bool, error)
 	CreateStudio(ctx context.Context, input model.CreateStudioInput) (*studios.Studio, error)
 	UpdateStudio(ctx context.Context, input model.UpdateStudioInput) (*studios.Studio, error)
+}
+type PlatformAccountResolver interface {
+	Platform(ctx context.Context, obj *platformaccounts.PlatformAccount) (*platforms.Platform, error)
+
+	Studio(ctx context.Context, obj *platformaccounts.PlatformAccount) (*studios.Studio, error)
+	Performers(ctx context.Context, obj *platformaccounts.PlatformAccount) ([]*performers.Performer, error)
 }
 type QueryResolver interface {
 	Version(ctx context.Context) (*model.Version, error)
@@ -143,6 +182,8 @@ type QueryResolver interface {
 	Performer(ctx context.Context, id *string, name *string) (*performers.Performer, error)
 	Platforms(ctx context.Context, first *int, after *string) (*page.Connection[*platforms.Platform], error)
 	Platform(ctx context.Context, id *string, name *string) (*platforms.Platform, error)
+	PlatformAccounts(ctx context.Context, first *int, after *string, platformID *string, performerID *string) (*page.Connection[*platformaccounts.PlatformAccount], error)
+	PlatformAccount(ctx context.Context, id *string, platformID *string, handle *string) (*platformaccounts.PlatformAccount, error)
 	Studios(ctx context.Context, first *int, after *string) (*page.Connection[*studios.Studio], error)
 	Studio(ctx context.Context, id *string, name *string) (*studios.Studio, error)
 }
@@ -187,6 +228,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.CreatePlatform(childComplexity, args["input"].(model.CreatePlatformInput)), true
+	case "Mutation.createPlatformAccount":
+		if e.ComplexityRoot.Mutation.CreatePlatformAccount == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createPlatformAccount_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.CreatePlatformAccount(childComplexity, args["input"].(model.CreatePlatformAccountInput)), true
 	case "Mutation.createStudio":
 		if e.ComplexityRoot.Mutation.CreateStudio == nil {
 			break
@@ -209,6 +261,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.DeletePerformer(childComplexity, args["input"].(model.DeletePerformerInput)), true
+	case "Mutation.deletePlatformAccount":
+		if e.ComplexityRoot.Mutation.DeletePlatformAccount == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deletePlatformAccount_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.DeletePlatformAccount(childComplexity, args["input"].(model.DeletePlatformAccountInput)), true
 	case "Mutation.updatePerformer":
 		if e.ComplexityRoot.Mutation.UpdatePerformer == nil {
 			break
@@ -231,6 +294,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.UpdatePlatform(childComplexity, args["input"].(model.UpdatePlatformInput)), true
+	case "Mutation.updatePlatformAccount":
+		if e.ComplexityRoot.Mutation.UpdatePlatformAccount == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updatePlatformAccount_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.UpdatePlatformAccount(childComplexity, args["input"].(model.UpdatePlatformAccountInput)), true
 	case "Mutation.updateStudio":
 		if e.ComplexityRoot.Mutation.UpdateStudio == nil {
 			break
@@ -350,6 +424,93 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Platform.Name(childComplexity), true
 
+	case "PlatformAccount.bio":
+		if e.ComplexityRoot.PlatformAccount.Bio == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PlatformAccount.Bio(childComplexity), true
+	case "PlatformAccount.createdAt":
+		if e.ComplexityRoot.PlatformAccount.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PlatformAccount.CreatedAt(childComplexity), true
+	case "PlatformAccount.handle":
+		if e.ComplexityRoot.PlatformAccount.Handle == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PlatformAccount.Handle(childComplexity), true
+	case "PlatformAccount.id":
+		if e.ComplexityRoot.PlatformAccount.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PlatformAccount.ID(childComplexity), true
+	case "PlatformAccount.performers":
+		if e.ComplexityRoot.PlatformAccount.Performers == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PlatformAccount.Performers(childComplexity), true
+	case "PlatformAccount.platform":
+		if e.ComplexityRoot.PlatformAccount.Platform == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PlatformAccount.Platform(childComplexity), true
+	case "PlatformAccount.platformUserId":
+		if e.ComplexityRoot.PlatformAccount.PlatformUserID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PlatformAccount.PlatformUserID(childComplexity), true
+	case "PlatformAccount.studio":
+		if e.ComplexityRoot.PlatformAccount.Studio == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PlatformAccount.Studio(childComplexity), true
+	case "PlatformAccount.updatedAt":
+		if e.ComplexityRoot.PlatformAccount.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PlatformAccount.UpdatedAt(childComplexity), true
+
+	case "PlatformAccountConnection.edges":
+		if e.ComplexityRoot.PlatformAccountConnection.Edges == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PlatformAccountConnection.Edges(childComplexity), true
+	case "PlatformAccountConnection.pageInfo":
+		if e.ComplexityRoot.PlatformAccountConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PlatformAccountConnection.PageInfo(childComplexity), true
+	case "PlatformAccountConnection.totalCount":
+		if e.ComplexityRoot.PlatformAccountConnection.TotalCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PlatformAccountConnection.TotalCount(childComplexity), true
+
+	case "PlatformAccountEdge.cursor":
+		if e.ComplexityRoot.PlatformAccountEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PlatformAccountEdge.Cursor(childComplexity), true
+	case "PlatformAccountEdge.node":
+		if e.ComplexityRoot.PlatformAccountEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PlatformAccountEdge.Node(childComplexity), true
+
 	case "PlatformConnection.edges":
 		if e.ComplexityRoot.PlatformConnection.Edges == nil {
 			break
@@ -415,6 +576,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Platform(childComplexity, args["id"].(*string), args["name"].(*string)), true
+	case "Query.platformAccount":
+		if e.ComplexityRoot.Query.PlatformAccount == nil {
+			break
+		}
+
+		args, err := ec.field_Query_platformAccount_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.PlatformAccount(childComplexity, args["id"].(*string), args["platformId"].(*string), args["handle"].(*string)), true
+	case "Query.platformAccounts":
+		if e.ComplexityRoot.Query.PlatformAccounts == nil {
+			break
+		}
+
+		args, err := ec.field_Query_platformAccounts_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.PlatformAccounts(childComplexity, args["first"].(*int), args["after"].(*string), args["platformId"].(*string), args["performerId"].(*string)), true
 	case "Query.platforms":
 		if e.ComplexityRoot.Query.Platforms == nil {
 			break
@@ -516,10 +699,13 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	ec := newExecutionContext(opCtx, e, make(chan graphql.DeferredResult))
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
 		ec.unmarshalInputCreatePerformerInput,
+		ec.unmarshalInputCreatePlatformAccountInput,
 		ec.unmarshalInputCreatePlatformInput,
 		ec.unmarshalInputCreateStudioInput,
 		ec.unmarshalInputDeletePerformerInput,
+		ec.unmarshalInputDeletePlatformAccountInput,
 		ec.unmarshalInputUpdatePerformerInput,
+		ec.unmarshalInputUpdatePlatformAccountInput,
 		ec.unmarshalInputUpdatePlatformInput,
 		ec.unmarshalInputUpdateStudioInput,
 	)
@@ -681,6 +867,63 @@ type Mutation {
   updatePlatform(input: UpdatePlatformInput!): Platform!
 }
 `, BuiltIn: false},
+	{Name: "../../schema/platform_account.graphql", Input: `type PlatformAccount {
+  id: ID!
+  platform: Platform!
+  platformUserId: String
+  handle: String!
+  bio: String
+  studio: Studio
+  performers: [Performer!]!
+  createdAt: String!
+  updatedAt: String
+}
+
+type PlatformAccountEdge {
+  node: PlatformAccount!
+  cursor: String!
+}
+
+type PlatformAccountConnection {
+  edges: [PlatformAccountEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+extend type Query {
+  platformAccounts(first: Int, after: String, platformId: ID, performerId: ID): PlatformAccountConnection!
+  platformAccount(id: ID, platformId: ID, handle: String): PlatformAccount
+}
+
+input CreatePlatformAccountInput {
+  platformId: ID!
+  platformUserId: String
+  handle: String!
+  bio: String
+  studioId: ID
+  performerIds: [ID!]
+}
+
+input UpdatePlatformAccountInput {
+  id: ID!
+  platformId: ID!
+  platformUserId: String
+  handle: String!
+  bio: String
+  studioId: ID
+  performerIds: [ID!]
+}
+
+input DeletePlatformAccountInput {
+  id: ID!
+}
+
+extend type Mutation {
+  createPlatformAccount(input: CreatePlatformAccountInput!): PlatformAccount!
+  updatePlatformAccount(input: UpdatePlatformAccountInput!): PlatformAccount!
+  deletePlatformAccount(input: DeletePlatformAccountInput!): Boolean!
+}
+`, BuiltIn: false},
 	{Name: "../../schema/schema.graphql", Input: `"""
 RFC 3339 timestamp.
 """
@@ -810,6 +1053,52 @@ func (ec *executionContext) childFields_Platform(ctx context.Context, field grap
 		return ec.fieldContext_Platform_name(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Platform", field.Name)
+}
+
+func (ec *executionContext) childFields_PlatformAccount(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_PlatformAccount_id(ctx, field)
+	case "platform":
+		return ec.fieldContext_PlatformAccount_platform(ctx, field)
+	case "platformUserId":
+		return ec.fieldContext_PlatformAccount_platformUserId(ctx, field)
+	case "handle":
+		return ec.fieldContext_PlatformAccount_handle(ctx, field)
+	case "bio":
+		return ec.fieldContext_PlatformAccount_bio(ctx, field)
+	case "studio":
+		return ec.fieldContext_PlatformAccount_studio(ctx, field)
+	case "performers":
+		return ec.fieldContext_PlatformAccount_performers(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_PlatformAccount_createdAt(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_PlatformAccount_updatedAt(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type PlatformAccount", field.Name)
+}
+
+func (ec *executionContext) childFields_PlatformAccountConnection(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "edges":
+		return ec.fieldContext_PlatformAccountConnection_edges(ctx, field)
+	case "pageInfo":
+		return ec.fieldContext_PlatformAccountConnection_pageInfo(ctx, field)
+	case "totalCount":
+		return ec.fieldContext_PlatformAccountConnection_totalCount(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type PlatformAccountConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_PlatformAccountEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "node":
+		return ec.fieldContext_PlatformAccountEdge_node(ctx, field)
+	case "cursor":
+		return ec.fieldContext_PlatformAccountEdge_cursor(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type PlatformAccountEdge", field.Name)
 }
 
 func (ec *executionContext) childFields_PlatformConnection(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -1004,6 +1293,20 @@ func (ec *executionContext) field_Mutation_createPerformer_args(ctx context.Cont
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_createPlatformAccount_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.CreatePlatformAccountInput, error) {
+			return ec.unmarshalNCreatePlatformAccountInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐCreatePlatformAccountInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_createPlatform_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1046,12 +1349,40 @@ func (ec *executionContext) field_Mutation_deletePerformer_args(ctx context.Cont
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_deletePlatformAccount_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.DeletePlatformAccountInput, error) {
+			return ec.unmarshalNDeletePlatformAccountInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐDeletePlatformAccountInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_updatePerformer_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (model.UpdatePerformerInput, error) {
 			return ec.unmarshalNUpdatePerformerInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐUpdatePerformerInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updatePlatformAccount_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.UpdatePlatformAccountInput, error) {
+			return ec.unmarshalNUpdatePlatformAccountInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐUpdatePlatformAccountInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -1143,6 +1474,74 @@ func (ec *executionContext) field_Query_performers_args(ctx context.Context, raw
 		return nil, err
 	}
 	args["after"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_platformAccount_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOID2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "platformId",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOID2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["platformId"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "handle",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["handle"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_platformAccounts_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "platformId",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOID2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["platformId"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "performerId",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOID2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["performerId"] = arg3
 	return args, nil
 }
 
@@ -1508,6 +1907,138 @@ func (ec *executionContext) fieldContext_Mutation_deletePerformer(ctx context.Co
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_deletePerformer_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_createPlatformAccount(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_createPlatformAccount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().CreatePlatformAccount(ctx, fc.Args["input"].(model.CreatePlatformAccountInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *platformaccounts.PlatformAccount) graphql.Marshaler {
+			return ec.marshalNPlatformAccount2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋplatformaccountsᚐPlatformAccount(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_createPlatformAccount(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PlatformAccount(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createPlatformAccount_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updatePlatformAccount(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_updatePlatformAccount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().UpdatePlatformAccount(ctx, fc.Args["input"].(model.UpdatePlatformAccountInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *platformaccounts.PlatformAccount) graphql.Marshaler {
+			return ec.marshalNPlatformAccount2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋplatformaccountsᚐPlatformAccount(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_updatePlatformAccount(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PlatformAccount(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updatePlatformAccount_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deletePlatformAccount(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_deletePlatformAccount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().DeletePlatformAccount(ctx, fc.Args["input"].(model.DeletePlatformAccountInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_deletePlatformAccount(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deletePlatformAccount_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -2020,6 +2551,382 @@ func (ec *executionContext) fieldContext_Platform_name(_ context.Context, field 
 	return graphql.NewScalarFieldContext("Platform", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _PlatformAccount_id(ctx context.Context, field graphql.CollectedField, obj *platformaccounts.PlatformAccount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PlatformAccount_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID(), nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PlatformAccount_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PlatformAccount", field, true, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _PlatformAccount_platform(ctx context.Context, field graphql.CollectedField, obj *platformaccounts.PlatformAccount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PlatformAccount_platform(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.PlatformAccount().Platform(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *platforms.Platform) graphql.Marshaler {
+			return ec.marshalNPlatform2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋplatformsᚐPlatform(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PlatformAccount_platform(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PlatformAccount",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Platform(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PlatformAccount_platformUserId(ctx context.Context, field graphql.CollectedField, obj *platformaccounts.PlatformAccount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PlatformAccount_platformUserId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PlatformUserID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_PlatformAccount_platformUserId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PlatformAccount", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _PlatformAccount_handle(ctx context.Context, field graphql.CollectedField, obj *platformaccounts.PlatformAccount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PlatformAccount_handle(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Handle, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PlatformAccount_handle(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PlatformAccount", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _PlatformAccount_bio(ctx context.Context, field graphql.CollectedField, obj *platformaccounts.PlatformAccount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PlatformAccount_bio(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Bio, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_PlatformAccount_bio(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PlatformAccount", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _PlatformAccount_studio(ctx context.Context, field graphql.CollectedField, obj *platformaccounts.PlatformAccount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PlatformAccount_studio(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.PlatformAccount().Studio(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *studios.Studio) graphql.Marshaler {
+			return ec.marshalOStudio2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋstudiosᚐStudio(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_PlatformAccount_studio(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PlatformAccount",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Studio(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PlatformAccount_performers(ctx context.Context, field graphql.CollectedField, obj *platformaccounts.PlatformAccount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PlatformAccount_performers(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.PlatformAccount().Performers(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*performers.Performer) graphql.Marshaler {
+			return ec.marshalNPerformer2ᚕᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋperformersᚐPerformerᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PlatformAccount_performers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PlatformAccount",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Performer(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PlatformAccount_createdAt(ctx context.Context, field graphql.CollectedField, obj *platformaccounts.PlatformAccount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PlatformAccount_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PlatformAccount_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PlatformAccount", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _PlatformAccount_updatedAt(ctx context.Context, field graphql.CollectedField, obj *platformaccounts.PlatformAccount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PlatformAccount_updatedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_PlatformAccount_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PlatformAccount", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _PlatformAccountConnection_edges(ctx context.Context, field graphql.CollectedField, obj *page.Connection[*platformaccounts.PlatformAccount]) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PlatformAccountConnection_edges(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*page.Edge[*platformaccounts.PlatformAccount]) graphql.Marshaler {
+			return ec.marshalNPlatformAccountEdge2ᚕᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐEdgeᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PlatformAccountConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PlatformAccountConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PlatformAccountEdge(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PlatformAccountConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *page.Connection[*platformaccounts.PlatformAccount]) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PlatformAccountConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *page.PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PlatformAccountConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PlatformAccountConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PlatformAccountConnection_totalCount(ctx context.Context, field graphql.CollectedField, obj *page.Connection[*platformaccounts.PlatformAccount]) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PlatformAccountConnection_totalCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TotalCount(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PlatformAccountConnection_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PlatformAccountConnection", field, true, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _PlatformAccountEdge_node(ctx context.Context, field graphql.CollectedField, obj *page.Edge[*platformaccounts.PlatformAccount]) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PlatformAccountEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *platformaccounts.PlatformAccount) graphql.Marshaler {
+			return ec.marshalNPlatformAccount2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋplatformaccountsᚐPlatformAccount(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PlatformAccountEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PlatformAccountEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PlatformAccount(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PlatformAccountEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *page.Edge[*platformaccounts.PlatformAccount]) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PlatformAccountEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PlatformAccountEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PlatformAccountEdge", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _PlatformConnection_edges(ctx context.Context, field graphql.CollectedField, obj *page.Connection[*platforms.Platform]) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2364,6 +3271,94 @@ func (ec *executionContext) fieldContext_Query_platform(ctx context.Context, fie
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_platform_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_platformAccounts(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_platformAccounts(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().PlatformAccounts(ctx, fc.Args["first"].(*int), fc.Args["after"].(*string), fc.Args["platformId"].(*string), fc.Args["performerId"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *page.Connection[*platformaccounts.PlatformAccount]) graphql.Marshaler {
+			return ec.marshalNPlatformAccountConnection2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_platformAccounts(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PlatformAccountConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_platformAccounts_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_platformAccount(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_platformAccount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().PlatformAccount(ctx, fc.Args["id"].(*string), fc.Args["platformId"].(*string), fc.Args["handle"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *platformaccounts.PlatformAccount) graphql.Marshaler {
+			return ec.marshalOPlatformAccount2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋplatformaccountsᚐPlatformAccount(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Query_platformAccount(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PlatformAccount(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_platformAccount_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -3848,6 +4843,71 @@ func (ec *executionContext) unmarshalInputCreatePerformerInput(ctx context.Conte
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputCreatePlatformAccountInput(ctx context.Context, obj any) (model.CreatePlatformAccountInput, error) {
+	var it model.CreatePlatformAccountInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"platformId", "platformUserId", "handle", "bio", "studioId", "performerIds"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "platformId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("platformId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PlatformID = data
+		case "platformUserId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("platformUserId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PlatformUserID = data
+		case "handle":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("handle"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Handle = data
+		case "bio":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("bio"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Bio = data
+		case "studioId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("studioId"))
+			data, err := ec.unmarshalOID2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.StudioID = data
+		case "performerIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("performerIds"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PerformerIds = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputCreatePlatformInput(ctx context.Context, obj any) (model.CreatePlatformInput, error) {
 	var it model.CreatePlatformInput
 	if obj == nil {
@@ -3952,6 +5012,36 @@ func (ec *executionContext) unmarshalInputDeletePerformerInput(ctx context.Conte
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputDeletePlatformAccountInput(ctx context.Context, obj any) (model.DeletePlatformAccountInput, error) {
+	var it model.DeletePlatformAccountInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputUpdatePerformerInput(ctx context.Context, obj any) (model.UpdatePerformerInput, error) {
 	var it model.UpdatePerformerInput
 	if obj == nil {
@@ -3998,6 +5088,78 @@ func (ec *executionContext) unmarshalInputUpdatePerformerInput(ctx context.Conte
 				return it, err
 			}
 			it.Aliases = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputUpdatePlatformAccountInput(ctx context.Context, obj any) (model.UpdatePlatformAccountInput, error) {
+	var it model.UpdatePlatformAccountInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "platformId", "platformUserId", "handle", "bio", "studioId", "performerIds"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "platformId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("platformId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PlatformID = data
+		case "platformUserId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("platformUserId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PlatformUserID = data
+		case "handle":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("handle"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Handle = data
+		case "bio":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("bio"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Bio = data
+		case "studioId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("studioId"))
+			data, err := ec.unmarshalOID2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.StudioID = data
+		case "performerIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("performerIds"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PerformerIds = data
 		}
 	}
 	return it, nil
@@ -4136,6 +5298,27 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "deletePerformer":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deletePerformer(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createPlatformAccount":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createPlatformAccount(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updatePlatformAccount":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updatePlatformAccount(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deletePlatformAccount":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deletePlatformAccount(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -4458,6 +5641,307 @@ func (ec *executionContext) _Platform(ctx context.Context, sel ast.SelectionSet,
 	return out
 }
 
+var platformAccountImplementors = []string{"PlatformAccount"}
+
+func (ec *executionContext) _PlatformAccount(ctx context.Context, sel ast.SelectionSet, obj *platformaccounts.PlatformAccount) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, platformAccountImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PlatformAccount")
+		case "id":
+			out.Values[i] = ec._PlatformAccount_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "platform":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._PlatformAccount_platform(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "platformUserId":
+			out.Values[i] = ec._PlatformAccount_platformUserId(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "handle":
+			out.Values[i] = ec._PlatformAccount_handle(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "bio":
+			out.Values[i] = ec._PlatformAccount_bio(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "studio":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._PlatformAccount_studio(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "performers":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._PlatformAccount_performers(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "createdAt":
+			out.Values[i] = ec._PlatformAccount_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "updatedAt":
+			out.Values[i] = ec._PlatformAccount_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var platformAccountConnectionImplementors = []string{"PlatformAccountConnection"}
+
+func (ec *executionContext) _PlatformAccountConnection(ctx context.Context, sel ast.SelectionSet, obj *page.Connection[*platformaccounts.PlatformAccount]) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, platformAccountConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PlatformAccountConnection")
+		case "edges":
+			out.Values[i] = ec._PlatformAccountConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "pageInfo":
+			out.Values[i] = ec._PlatformAccountConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "totalCount":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._PlatformAccountConnection_totalCount(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var platformAccountEdgeImplementors = []string{"PlatformAccountEdge"}
+
+func (ec *executionContext) _PlatformAccountEdge(ctx context.Context, sel ast.SelectionSet, obj *page.Edge[*platformaccounts.PlatformAccount]) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, platformAccountEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PlatformAccountEdge")
+		case "node":
+			out.Values[i] = ec._PlatformAccountEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cursor":
+			out.Values[i] = ec._PlatformAccountEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var platformConnectionImplementors = []string{"PlatformConnection"}
 
 func (ec *executionContext) _PlatformConnection(ctx context.Context, sel ast.SelectionSet, obj *page.Connection[*platforms.Platform]) graphql.Marshaler {
@@ -4700,6 +6184,50 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_platform(ctx, field)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "platformAccounts":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_platformAccounts(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "platformAccount":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_platformAccount(ctx, field)
 				if res == graphql.RequiredNull {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -5409,6 +6937,11 @@ func (ec *executionContext) unmarshalNCreatePerformerInput2githubᚗcomᚋload�
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalNCreatePlatformAccountInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐCreatePlatformAccountInput(ctx context.Context, v any) (model.CreatePlatformAccountInput, error) {
+	res, err := ec.unmarshalInputCreatePlatformAccountInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNCreatePlatformInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐCreatePlatformInput(ctx context.Context, v any) (model.CreatePlatformInput, error) {
 	res, err := ec.unmarshalInputCreatePlatformInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -5421,6 +6954,11 @@ func (ec *executionContext) unmarshalNCreateStudioInput2githubᚗcomᚋloadᚑbe
 
 func (ec *executionContext) unmarshalNDeletePerformerInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐDeletePerformerInput(ctx context.Context, v any) (model.DeletePerformerInput, error) {
 	res, err := ec.unmarshalInputDeletePerformerInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNDeletePlatformAccountInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐDeletePlatformAccountInput(ctx context.Context, v any) (model.DeletePlatformAccountInput, error) {
+	res, err := ec.unmarshalInputDeletePlatformAccountInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -5464,6 +7002,22 @@ func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋloadᚑbearingᚑ
 		return graphql.Null
 	}
 	return ec._PageInfo(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNPerformer2ᚕᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋperformersᚐPerformerᚄ(ctx context.Context, sel ast.SelectionSet, v []*performers.Performer) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNPerformer2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋperformersᚐPerformer(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalNPerformer2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋperformersᚐPerformer(ctx context.Context, sel ast.SelectionSet, v *performers.Performer) graphql.Marshaler {
@@ -5520,6 +7074,52 @@ func (ec *executionContext) marshalNPlatform2ᚖgithubᚗcomᚋloadᚑbearingᚑ
 		return graphql.Null
 	}
 	return ec._Platform(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNPlatformAccount2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋplatformaccountsᚐPlatformAccount(ctx context.Context, sel ast.SelectionSet, v *platformaccounts.PlatformAccount) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._PlatformAccount(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNPlatformAccountConnection2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐConnection(ctx context.Context, sel ast.SelectionSet, v *page.Connection[*platformaccounts.PlatformAccount]) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._PlatformAccountConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNPlatformAccountEdge2ᚕᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*page.Edge[*platformaccounts.PlatformAccount]) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNPlatformAccountEdge2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐEdge(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNPlatformAccountEdge2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐEdge(ctx context.Context, sel ast.SelectionSet, v *page.Edge[*platformaccounts.PlatformAccount]) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._PlatformAccountEdge(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNPlatformConnection2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐConnection(ctx context.Context, sel ast.SelectionSet, v *page.Connection[*platforms.Platform]) graphql.Marshaler {
@@ -5651,6 +7251,11 @@ func (ec *executionContext) marshalNStudioEdge2ᚖgithubᚗcomᚋloadᚑbearing�
 
 func (ec *executionContext) unmarshalNUpdatePerformerInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐUpdatePerformerInput(ctx context.Context, v any) (model.UpdatePerformerInput, error) {
 	res, err := ec.unmarshalInputUpdatePerformerInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdatePlatformAccountInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐUpdatePlatformAccountInput(ctx context.Context, v any) (model.UpdatePlatformAccountInput, error) {
+	res, err := ec.unmarshalInputUpdatePlatformAccountInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -5844,6 +7449,41 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
+func (ec *executionContext) unmarshalOID2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNID2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOID2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNID2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) unmarshalOID2ᚖstring(ctx context.Context, v any) (*string, error) {
 	if v == nil {
 		return nil, nil
@@ -5892,6 +7532,13 @@ func (ec *executionContext) marshalOPlatform2ᚖgithubᚗcomᚋloadᚑbearingᚑ
 		return graphql.Null
 	}
 	return ec._Platform(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOPlatformAccount2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋplatformaccountsᚐPlatformAccount(ctx context.Context, sel ast.SelectionSet, v *platformaccounts.PlatformAccount) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._PlatformAccount(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {

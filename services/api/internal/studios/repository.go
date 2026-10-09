@@ -98,3 +98,18 @@ func (r *Repository) Get(ctx context.Context, id, name *string) (*Studio, error)
 	}
 	return &row, nil
 }
+
+// ListByIDs returns the studios matching ids, in no particular order and
+// omitting any id with no matching row. It's the batch fetch a
+// dataloader collapses many per-row Studio lookups into.
+func (r *Repository) ListByIDs(ctx context.Context, ids []string) ([]Studio, error) {
+	var rows []Studio
+	query, args, err := sqlx.In(`SELECT id, name FROM studios WHERE id IN (?)`, ids)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.db.SelectContext(ctx, &rows, r.db.Rebind(query), args...); err != nil {
+		return nil, err
+	}
+	return rows, nil
+}

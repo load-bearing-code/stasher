@@ -1,0 +1,56 @@
+type PlatformAccount {
+  id: ID!
+  platform: Platform!
+  platformUserId: String
+  handle: String!
+  bio: String
+  studio: Studio
+  performers: [Performer!]!
+  createdAt: String!
+  updatedAt: String
+}
+
+type PlatformAccountEdge {
+  node: PlatformAccount!
+  cursor: String!
+}
+
+type PlatformAccountConnection {
+  edges: [PlatformAccountEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+extend type Query {
+  platformAccounts(first: Int, after: String, platformId: ID, performerId: ID): PlatformAccountConnection!
+  platformAccount(id: ID, platformId: ID, handle: String): PlatformAccount
+}
+
+input CreatePlatformAccountInput {
+  platformId: ID!
+  platformUserId: String
+  handle: String!
+  bio: String
+  studioId: ID
+  performerIds: [ID!]
+}
+
+input UpdatePlatformAccountInput {
+  id: ID!
+  platformId: ID!
+  platformUserId: String
+  handle: String!
+  bio: String
+  studioId: ID
+  performerIds: [ID!]
+}
+
+input DeletePlatformAccountInput {
+  id: ID!
+}
+
+extend type Mutation {
+  createPlatformAccount(input: CreatePlatformAccountInput!): PlatformAccount!
+  updatePlatformAccount(input: UpdatePlatformAccountInput!): PlatformAccount!
+  deletePlatformAccount(input: DeletePlatformAccountInput!): Boolean!
+}
