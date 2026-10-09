@@ -3,6 +3,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import { SERVER_METADATA_QUERY_KEY } from "@/features/settings/library/library-api";
 import { graphqlRequest } from "@/shared/api/graphql";
 
 const TAGS_QUERY_KEY = ["tags"] as const;
@@ -128,6 +129,9 @@ export function useCreateTag() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: TAGS_QUERY_KEY });
+      void queryClient.invalidateQueries({
+        queryKey: SERVER_METADATA_QUERY_KEY,
+      });
     },
   });
 }
@@ -162,6 +166,9 @@ export function useDeleteTag() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: TAGS_QUERY_KEY });
+      void queryClient.invalidateQueries({
+        queryKey: SERVER_METADATA_QUERY_KEY,
+      });
     },
   });
 }

@@ -38,7 +38,7 @@ export function SettingsNav() {
             <Icon className={cn("size-4", isActive && "text-tint-text")} />
             <span className="flex-1">{item.label}</span>
             {count !== undefined ? (
-              <span className="min-w-8 rounded-full bg-foreground/10 px-2.5 py-0.5 text-center text-[11px] text-muted-foreground/80 tabular-nums">
+              <span className="min-w-8 rounded-md bg-foreground/10 px-2.5 py-0.5 text-center text-[11px] text-muted-foreground/80 tabular-nums">
                 {count}
               </span>
             ) : null}

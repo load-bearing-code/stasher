@@ -11,6 +11,8 @@ export interface ServerMetadata {
   };
 }
 
+export const SERVER_METADATA_QUERY_KEY = ["serverMetadata"] as const;
+
 const SERVER_METADATA_QUERY = /* GraphQL */ `
   query ServerMetadata {
     serverMetadata {
@@ -28,7 +30,7 @@ const SERVER_METADATA_QUERY = /* GraphQL */ `
 /** Fetches the connected library's version, endpoint, and item counts. */
 export function useServerMetadata() {
   return useQuery({
-    queryKey: ["serverMetadata"],
+    queryKey: SERVER_METADATA_QUERY_KEY,
     queryFn: () =>
       graphqlRequest<{ serverMetadata: ServerMetadata }>(
         SERVER_METADATA_QUERY,

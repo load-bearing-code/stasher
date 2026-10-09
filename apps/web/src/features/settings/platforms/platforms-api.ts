@@ -3,6 +3,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import { SERVER_METADATA_QUERY_KEY } from "@/features/settings/library/library-api";
 import { graphqlRequest } from "@/shared/api/graphql";
 
 const PLATFORMS_QUERY_KEY = ["platforms"] as const;
@@ -139,6 +140,9 @@ export function useCreatePlatform() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: PLATFORMS_QUERY_KEY });
+      void queryClient.invalidateQueries({
+        queryKey: SERVER_METADATA_QUERY_KEY,
+      });
     },
   });
 }
@@ -173,6 +177,9 @@ export function useDeletePlatform() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: PLATFORMS_QUERY_KEY });
+      void queryClient.invalidateQueries({
+        queryKey: SERVER_METADATA_QUERY_KEY,
+      });
     },
   });
 }
