@@ -8,6 +8,7 @@ services:
     environment:
       ADDR: ":8080"
       DB_PATH: "/data/stasher.db"
+      ASSETS_PATH: "/data/assets"
     volumes:
       - ./services/api:/app
       - api-gopath:/go/pkg/mod

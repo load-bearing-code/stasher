@@ -1,6 +1,8 @@
 type Platform {
   id: ID!
   name: String!
+  iconUri: String
+  wordmarkUri: String
 }
 
 type PlatformEdge {
@@ -22,11 +24,15 @@ extend type Query {
 input CreatePlatformInput {
   id: ID!
   name: String!
+  icon: Upload
+  wordmark: Upload
 }
 
 input UpdatePlatformInput {
   id: ID!
   name: String!
+  icon: Upload
+  wordmark: Upload
 }
 
 input DeletePlatformInput {

@@ -16,12 +16,12 @@ import (
 
 // CreatePlatform is the resolver for the createPlatform field.
 func (r *mutationResolver) CreatePlatform(ctx context.Context, input model.CreatePlatformInput) (*platforms.Platform, error) {
-	return r.Services.Platforms.Create(ctx, string(input.ID), input.Name)
+	return r.Services.Platforms.Create(ctx, string(input.ID), input.Name, assetUpload(input.Icon), assetUpload(input.Wordmark))
 }
 
 // UpdatePlatform is the resolver for the updatePlatform field.
 func (r *mutationResolver) UpdatePlatform(ctx context.Context, input model.UpdatePlatformInput) (*platforms.Platform, error) {
-	return r.Services.Platforms.Update(ctx, string(input.ID), input.Name)
+	return r.Services.Platforms.Update(ctx, string(input.ID), input.Name, assetUpload(input.Icon), assetUpload(input.Wordmark))
 }
 
 // DeletePlatform is the resolver for the deletePlatform field.

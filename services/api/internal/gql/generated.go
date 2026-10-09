@@ -91,8 +91,10 @@ type ComplexityRoot struct {
 	}
 
 	Platform struct {
-		ID   func(childComplexity int) int
-		Name func(childComplexity int) int
+		ID          func(childComplexity int) int
+		IconURI     func(childComplexity int) int
+		Name        func(childComplexity int) int
+		WordmarkURI func(childComplexity int) int
 	}
 
 	PlatformAccount struct {
@@ -521,12 +523,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Platform.ID(childComplexity), true
+	case "Platform.iconUri":
+		if e.ComplexityRoot.Platform.IconURI == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Platform.IconURI(childComplexity), true
 	case "Platform.name":
 		if e.ComplexityRoot.Platform.Name == nil {
 			break
 		}
 
 		return e.ComplexityRoot.Platform.Name(childComplexity), true
+	case "Platform.wordmarkUri":
+		if e.ComplexityRoot.Platform.WordmarkURI == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Platform.WordmarkURI(childComplexity), true
 
 	case "PlatformAccount.bio":
 		if e.ComplexityRoot.PlatformAccount.Bio == nil {
@@ -1082,6 +1096,8 @@ extend type Mutation {
 	{Name: "../../schema/platform.graphql", Input: `type Platform {
   id: ID!
   name: String!
+  iconUri: String
+  wordmarkUri: String
 }
 
 type PlatformEdge {
@@ -1103,11 +1119,15 @@ extend type Query {
 input CreatePlatformInput {
   id: ID!
   name: String!
+  icon: Upload
+  wordmark: Upload
 }
 
 input UpdatePlatformInput {
   id: ID!
   name: String!
+  icon: Upload
+  wordmark: Upload
 }
 
 input DeletePlatformInput {
@@ -1181,6 +1201,11 @@ extend type Mutation {
 RFC 3339 timestamp.
 """
 scalar Time
+
+"""
+A file sent using the GraphQL multipart request specification.
+"""
+scalar Upload
 
 type Version {
   version: String!
@@ -1352,6 +1377,10 @@ func (ec *executionContext) childFields_Platform(ctx context.Context, field grap
 		return ec.fieldContext_Platform_id(ctx, field)
 	case "name":
 		return ec.fieldContext_Platform_name(ctx, field)
+	case "iconUri":
+		return ec.fieldContext_Platform_iconUri(ctx, field)
+	case "wordmarkUri":
+		return ec.fieldContext_Platform_wordmarkUri(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Platform", field.Name)
 }
@@ -3225,6 +3254,52 @@ func (ec *executionContext) _Platform_name(ctx context.Context, field graphql.Co
 	)
 }
 func (ec *executionContext) fieldContext_Platform_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Platform", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Platform_iconUri(ctx context.Context, field graphql.CollectedField, obj *platforms.Platform) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Platform_iconUri(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IconURI, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Platform_iconUri(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Platform", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Platform_wordmarkUri(ctx context.Context, field graphql.CollectedField, obj *platforms.Platform) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Platform_wordmarkUri(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.WordmarkURI, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Platform_wordmarkUri(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Platform", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
@@ -6106,7 +6181,7 @@ func (ec *executionContext) unmarshalInputCreatePlatformInput(ctx context.Contex
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"id", "name"}
+	fieldsInOrder := [...]string{"id", "name", "icon", "wordmark"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -6127,6 +6202,20 @@ func (ec *executionContext) unmarshalInputCreatePlatformInput(ctx context.Contex
 				return it, err
 			}
 			it.Name = data
+		case "icon":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("icon"))
+			data, err := ec.unmarshalOUpload2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Icon = data
+		case "wordmark":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("wordmark"))
+			data, err := ec.unmarshalOUpload2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Wordmark = data
 		}
 	}
 	return it, nil
@@ -6467,7 +6556,7 @@ func (ec *executionContext) unmarshalInputUpdatePlatformInput(ctx context.Contex
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"id", "name"}
+	fieldsInOrder := [...]string{"id", "name", "icon", "wordmark"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -6488,6 +6577,20 @@ func (ec *executionContext) unmarshalInputUpdatePlatformInput(ctx context.Contex
 				return it, err
 			}
 			it.Name = data
+		case "icon":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("icon"))
+			data, err := ec.unmarshalOUpload2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Icon = data
+		case "wordmark":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("wordmark"))
+			data, err := ec.unmarshalOUpload2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Wordmark = data
 		}
 	}
 	return it, nil
@@ -7026,6 +7129,16 @@ func (ec *executionContext) _Platform(ctx context.Context, sel ast.SelectionSet,
 		case "name":
 			out.Values[i] = ec._Platform_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "iconUri":
+			out.Values[i] = ec._Platform_iconUri(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "wordmarkUri":
+			out.Values[i] = ec._Platform_wordmarkUri(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		default:
@@ -9488,6 +9601,24 @@ func (ec *executionContext) marshalOTag2ᚖgithubᚗcomᚋloadᚑbearingᚑcode�
 		return graphql.Null
 	}
 	return ec._Tag(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOUpload2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx context.Context, v any) (*graphql.Upload, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalUpload(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOUpload2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx context.Context, sel ast.SelectionSet, v *graphql.Upload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalUpload(*v)
+	return res
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {

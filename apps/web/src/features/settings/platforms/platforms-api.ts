@@ -1,8 +1,4 @@
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SERVER_METADATA_QUERY_KEY } from "@/features/settings/library/library-api";
 import { graphqlRequest } from "@/shared/api/graphql";
 
@@ -11,6 +7,8 @@ const PLATFORMS_QUERY_KEY = ["platforms"] as const;
 export interface Platform {
   id: string;
   name: string;
+  iconUri: string | null;
+  wordmarkUri: string | null;
 }
 
 export interface PlatformSummary extends Platform {
@@ -43,6 +41,8 @@ const PLATFORMS_QUERY = /* GraphQL */ `
         node {
           id
           name
+          iconUri
+          wordmarkUri
         }
       }
       totalCount
@@ -67,10 +67,9 @@ export function usePlatforms() {
   return useQuery({
     queryKey: PLATFORMS_QUERY_KEY,
     queryFn: async (): Promise<PlatformList> => {
-      const data = await graphqlRequest<PlatformsQueryResult>(
-        PLATFORMS_QUERY,
-        { first: PLATFORMS_PAGE_SIZE },
-      );
+      const data = await graphqlRequest<PlatformsQueryResult>(PLATFORMS_QUERY, {
+        first: PLATFORMS_PAGE_SIZE,
+      });
 
       const performerIdsByPlatform = new Map<string, Set<string>>();
       for (const { node } of data.platformAccounts.edges) {
@@ -93,16 +92,40 @@ export function usePlatforms() {
 const PLATFORM_FIELDS = /* GraphQL */ `
   id
   name
+  iconUri
+  wordmarkUri
 `;
 
 export interface CreatePlatformInput {
   id: string;
   name: string;
+  icon?: File;
+  wordmark?: File;
 }
 
 export interface UpdatePlatformInput {
   id: string;
   name: string;
+  icon?: File;
+  wordmark?: File;
+}
+
+function platformMutation<T>(
+  query: string,
+  input: CreatePlatformInput | UpdatePlatformInput,
+): Promise<T> {
+  const { icon, wordmark, ...fields } = input;
+  const mutationInput: Record<string, unknown> = { ...fields };
+  const uploads = [];
+  if (icon) {
+    mutationInput.icon = null;
+    uploads.push({ path: "variables.input.icon", file: icon });
+  }
+  if (wordmark) {
+    mutationInput.wordmark = null;
+    uploads.push({ path: "variables.input.wordmark", file: wordmark });
+  }
+  return graphqlRequest<T>(query, { input: mutationInput }, uploads);
 }
 
 const CREATE_PLATFORM_MUTATION = /* GraphQL */ `
@@ -132,9 +155,9 @@ export function useCreatePlatform() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreatePlatformInput): Promise<Platform> => {
-      const data = await graphqlRequest<{ createPlatform: Platform }>(
+      const data = await platformMutation<{ createPlatform: Platform }>(
         CREATE_PLATFORM_MUTATION,
-        { input },
+        input,
       );
       return data.createPlatform;
     },
@@ -147,14 +170,14 @@ export function useCreatePlatform() {
   });
 }
 
-/** Updates a platform's name, then refreshes. */
+/** Updates a platform's name and optional artwork, then refreshes. */
 export function useUpdatePlatform() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: UpdatePlatformInput): Promise<Platform> => {
-      const data = await graphqlRequest<{ updatePlatform: Platform }>(
+      const data = await platformMutation<{ updatePlatform: Platform }>(
         UPDATE_PLATFORM_MUTATION,
-        { input },
+        input,
       );
       return data.updatePlatform;
     },
@@ -169,10 +192,9 @@ export function useDeletePlatform() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string): Promise<boolean> => {
-      const data = await graphqlRequest<{ deletePlatform: boolean }>(
-        DELETE_PLATFORM_MUTATION,
-        { input: { id } },
-      );
+      const data = await graphqlRequest<{ deletePlatform: boolean }>(DELETE_PLATFORM_MUTATION, {
+        input: { id },
+      });
       return data.deletePlatform;
     },
     onSuccess: () => {

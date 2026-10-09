@@ -2,6 +2,10 @@
 
 package model
 
+import (
+	"github.com/99designs/gqlgen/graphql"
+)
+
 type CreatePerformerInput struct {
 	Name           string   `json:"name"`
 	Disambiguation *string  `json:"disambiguation,omitempty"`
@@ -18,8 +22,10 @@ type CreatePlatformAccountInput struct {
 }
 
 type CreatePlatformInput struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID       string          `json:"id"`
+	Name     string          `json:"name"`
+	Icon     *graphql.Upload `json:"icon,omitempty"`
+	Wordmark *graphql.Upload `json:"wordmark,omitempty"`
 }
 
 type CreateStudioInput struct {
@@ -85,8 +91,10 @@ type UpdatePlatformAccountInput struct {
 }
 
 type UpdatePlatformInput struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID       string          `json:"id"`
+	Name     string          `json:"name"`
+	Icon     *graphql.Upload `json:"icon,omitempty"`
+	Wordmark *graphql.Upload `json:"wordmark,omitempty"`
 }
 
 type UpdateStudioInput struct {

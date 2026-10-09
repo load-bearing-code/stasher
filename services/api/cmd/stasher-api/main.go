@@ -15,6 +15,7 @@ import (
 
 	"github.com/load-bearing-code/stasher/api/internal"
 	"github.com/load-bearing-code/stasher/api/internal/api"
+	"github.com/load-bearing-code/stasher/api/internal/assets"
 	"github.com/load-bearing-code/stasher/api/internal/migrations"
 	"github.com/load-bearing-code/stasher/api/internal/performers"
 	"github.com/load-bearing-code/stasher/api/internal/pkg/config"
@@ -58,16 +59,20 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	// SQLite permits a single writer; one connection avoids "database is
 	// locked" under concurrent access.
 	db.SetMaxOpenConns(1)
+	assetStore, err := assets.NewStore(cfg.AssetsPath)
+	if err != nil {
+		return err
+	}
 
 	services := &service.Services{
-		Platforms:        platforms.New(db),
+		Platforms:        platforms.New(db, assetStore),
 		Studios:          studios.New(db),
 		Performers:       performers.New(db),
 		PlatformAccounts: platformaccounts.New(db),
 		Tags:             tags.New(db),
 	}
 
-	handler := api.NewRouter(services, cfg.APIKey, cfg.PublicURL, cfg.CORSOrigins)
+	handler := api.NewRouter(services, assetStore, cfg.APIKey, cfg.PublicURL, cfg.CORSOrigins)
 	srv := &http.Server{
 		Addr:              cfg.ListenAddr,
 		Handler:           handler,
@@ -79,7 +84,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	serveErr := make(chan error, 1)
 	go func() {
-		logger.Info("listening", "addr", cfg.ListenAddr, "db", cfg.DBPath)
+		logger.Info("listening", "addr", cfg.ListenAddr, "db", cfg.DBPath, "assets", cfg.AssetsPath)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serveErr <- err
 			return

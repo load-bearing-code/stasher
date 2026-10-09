@@ -9,6 +9,9 @@ type Config struct {
 	ListenAddr string
 	// DBPath is the filesystem path to the SQLite database (DB_PATH).
 	DBPath string
+	// AssetsPath is the filesystem directory used for uploaded files
+	// (ASSETS_PATH).
+	AssetsPath string
 	// APIKey, when set, must be sent as the ApiKey request header on
 	// every /graphql request (API_KEY). Unset by default so local dev
 	// just works.
@@ -28,6 +31,7 @@ func Load() *Config {
 	return &Config{
 		ListenAddr:  envOr("ADDR", ":8080"),
 		DBPath:      envOr("DB_PATH", "stasher.db"),
+		AssetsPath:  envOr("ASSETS_PATH", "assets"),
 		APIKey:      os.Getenv("API_KEY"),
 		PublicURL:   os.Getenv("PUBLIC_URL"),
 		CORSOrigins: os.Getenv("CORS_ORIGINS"),

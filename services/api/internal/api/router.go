@@ -16,16 +16,18 @@ import (
 // NewRouter returns the API's HTTP handler: GraphQL at /graphql, guarded
 // by an optional ApiKey header check (apiKey; empty disables the check),
 // and a playground at / for local exploration. publicURL is the
-// externally reachable endpoint reported via serverMetadata.
+// externally reachable endpoint reported via serverMetadata. assetHandler
+// serves public uploaded files below /assets/.
 // corsOrigins is a comma-separated allowlist of browser origins (empty
 // allows any).
-func NewRouter(services *service.Services, apiKey, publicURL, corsOrigins string) http.Handler {
+func NewRouter(services *service.Services, assetHandler http.Handler, apiKey, publicURL, corsOrigins string) http.Handler {
 	resolver := gql.New(services, publicURL)
 	schema := gql.NewExecutableSchema(gql.Config{Resolvers: resolver})
 	graphqlHandler := handler.NewDefaultServer(schema)
 
 	mux := http.NewServeMux()
 	mux.Handle("/", playground.Handler("Stasher API", "/graphql"))
+	mux.Handle("/assets/", assetHandler)
 	mux.Handle("/graphql", middleware.CORS(corsOrigins)(middleware.APIKey(apiKey)(gql.LoadersMiddleware(services)(graphqlHandler))))
 
 	return mux

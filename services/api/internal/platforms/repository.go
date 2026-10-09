@@ -14,8 +14,10 @@ import (
 // Fansly, OnlyFans). The row set is seeded by migration, not created at
 // runtime.
 type Platform struct {
-	ID   string `db:"id"`
-	Name string `db:"name"`
+	ID          string  `db:"id"`
+	Name        string  `db:"name"`
+	IconURI     *string `db:"icon_uri"`
+	WordmarkURI *string `db:"wordmark_uri"`
 }
 
 // Cursor is Platform's position in the name-ordered list Query.platforms
@@ -36,7 +38,7 @@ func NewRepository(db *sqlx.DB) *Repository {
 // a.First+1 rows so the service can tell whether another page follows
 // without a separate count query.
 func (r *Repository) List(ctx context.Context, a page.Args) ([]*Platform, error) {
-	query := `SELECT id, name FROM platforms`
+	query := `SELECT id, name, icon_uri, wordmark_uri FROM platforms`
 	args := []any{}
 	if a.After != nil {
 		query += ` WHERE (name, id) > (?, ?)`
@@ -63,21 +65,35 @@ func (r *Repository) Count(ctx context.Context) (int, error) {
 }
 
 // Create inserts a new platform row and returns it.
-func (r *Repository) Create(ctx context.Context, id, name string) (*Platform, error) {
-	_, err := r.db.ExecContext(ctx, r.db.Rebind(`INSERT INTO platforms (id, name) VALUES (?, ?)`), id, name)
+func (r *Repository) Create(ctx context.Context, id, name string, iconURI, wordmarkURI *string) (*Platform, error) {
+	_, err := r.db.ExecContext(
+		ctx,
+		r.db.Rebind(`INSERT INTO platforms (id, name, icon_uri, wordmark_uri) VALUES (?, ?, ?, ?)`),
+		id,
+		name,
+		iconURI,
+		wordmarkURI,
+	)
 	if err != nil {
 		return nil, err
 	}
-	return &Platform{ID: id, Name: name}, nil
+	return &Platform{ID: id, Name: name, IconURI: iconURI, WordmarkURI: wordmarkURI}, nil
 }
 
-// Update changes an existing platform's name and returns it.
-func (r *Repository) Update(ctx context.Context, id, name string) (*Platform, error) {
-	_, err := r.db.ExecContext(ctx, r.db.Rebind(`UPDATE platforms SET name = ? WHERE id = ?`), name, id)
+// Update changes an existing platform and returns it.
+func (r *Repository) Update(ctx context.Context, id, name string, iconURI, wordmarkURI *string) (*Platform, error) {
+	_, err := r.db.ExecContext(
+		ctx,
+		r.db.Rebind(`UPDATE platforms SET name = ?, icon_uri = ?, wordmark_uri = ? WHERE id = ?`),
+		name,
+		iconURI,
+		wordmarkURI,
+		id,
+	)
 	if err != nil {
 		return nil, err
 	}
-	return &Platform{ID: id, Name: name}, nil
+	return &Platform{ID: id, Name: name, IconURI: iconURI, WordmarkURI: wordmarkURI}, nil
 }
 
 // Get returns the platform matching id if given, else name. It returns nil,
@@ -86,9 +102,9 @@ func (r *Repository) Get(ctx context.Context, id, name *string) (*Platform, erro
 	var query string
 	var arg string
 	if id != nil {
-		query, arg = `SELECT id, name FROM platforms WHERE id = ?`, *id
+		query, arg = `SELECT id, name, icon_uri, wordmark_uri FROM platforms WHERE id = ?`, *id
 	} else {
-		query, arg = `SELECT id, name FROM platforms WHERE name = ?`, *name
+		query, arg = `SELECT id, name, icon_uri, wordmark_uri FROM platforms WHERE name = ?`, *name
 	}
 
 	var row Platform
@@ -120,7 +136,7 @@ func (r *Repository) Delete(ctx context.Context, id string) (bool, error) {
 // dataloader collapses many per-row Platform lookups into.
 func (r *Repository) ListByIDs(ctx context.Context, ids []string) ([]Platform, error) {
 	var rows []Platform
-	query, args, err := sqlx.In(`SELECT id, name FROM platforms WHERE id IN (?)`, ids)
+	query, args, err := sqlx.In(`SELECT id, name, icon_uri, wordmark_uri FROM platforms WHERE id IN (?)`, ids)
 	if err != nil {
 		return nil, err
 	}

@@ -6,7 +6,10 @@ package gql
 // here.
 
 import (
+	"github.com/99designs/gqlgen/graphql"
+
 	"github.com/load-bearing-code/stasher/api/internal"
+	"github.com/load-bearing-code/stasher/api/internal/assets"
 )
 
 // Version is the build-stamped API version returned by the `version` query.
@@ -22,4 +25,15 @@ type Resolver struct {
 
 func New(services *service.Services, publicURL string) *Resolver {
 	return &Resolver{Services: services, PublicURL: publicURL}
+}
+
+func assetUpload(upload *graphql.Upload) *assets.Upload {
+	if upload == nil {
+		return nil
+	}
+	return &assets.Upload{
+		File:        upload.File,
+		Filename:    upload.Filename,
+		ContentType: upload.ContentType,
+	}
 }

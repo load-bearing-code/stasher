@@ -3,6 +3,11 @@ RFC 3339 timestamp.
 """
 scalar Time
 
+"""
+A file sent using the GraphQL multipart request specification.
+"""
+scalar Upload
+
 type Version {
   version: String!
 }
