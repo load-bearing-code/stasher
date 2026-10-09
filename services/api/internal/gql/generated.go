@@ -135,11 +135,23 @@ type ComplexityRoot struct {
 		PlatformAccount  func(childComplexity int, id *string, platformID *string, handle *string) int
 		PlatformAccounts func(childComplexity int, first *int, after *string, platformID *string, performerID *string) int
 		Platforms        func(childComplexity int, first *int, after *string) int
+		ServerMetadata   func(childComplexity int) int
 		Studio           func(childComplexity int, id *string, name *string) int
 		Studios          func(childComplexity int, first *int, after *string) int
 		Tag              func(childComplexity int, id *string, name *string) int
 		Tags             func(childComplexity int, first *int, after *string, performerID *string) int
 		Version          func(childComplexity int) int
+	}
+
+	ServerMetadata struct {
+		Endpoint   func(childComplexity int) int
+		ItemCounts func(childComplexity int) int
+		Version    func(childComplexity int) int
+	}
+
+	ServerMetadataItemCounts struct {
+		Performers func(childComplexity int) int
+		Tags       func(childComplexity int) int
 	}
 
 	Studio struct {
@@ -211,6 +223,7 @@ type PlatformAccountResolver interface {
 }
 type QueryResolver interface {
 	Version(ctx context.Context) (*model.Version, error)
+	ServerMetadata(ctx context.Context) (*model.ServerMetadata, error)
 	Performers(ctx context.Context, first *int, after *string) (*page.Connection[*performers.Performer], error)
 	Performer(ctx context.Context, id *string, name *string) (*performers.Performer, error)
 	Platforms(ctx context.Context, first *int, after *string) (*page.Connection[*platforms.Platform], error)
@@ -686,6 +699,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Platforms(childComplexity, args["first"].(*int), args["after"].(*string)), true
+	case "Query.serverMetadata":
+		if e.ComplexityRoot.Query.ServerMetadata == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Query.ServerMetadata(childComplexity), true
 	case "Query.studio":
 		if e.ComplexityRoot.Query.Studio == nil {
 			break
@@ -736,6 +755,38 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Version(childComplexity), true
+
+	case "ServerMetadata.endpoint":
+		if e.ComplexityRoot.ServerMetadata.Endpoint == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ServerMetadata.Endpoint(childComplexity), true
+	case "ServerMetadata.itemCounts":
+		if e.ComplexityRoot.ServerMetadata.ItemCounts == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ServerMetadata.ItemCounts(childComplexity), true
+	case "ServerMetadata.version":
+		if e.ComplexityRoot.ServerMetadata.Version == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ServerMetadata.Version(childComplexity), true
+
+	case "ServerMetadataItemCounts.performers":
+		if e.ComplexityRoot.ServerMetadataItemCounts.Performers == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ServerMetadataItemCounts.Performers(childComplexity), true
+	case "ServerMetadataItemCounts.tags":
+		if e.ComplexityRoot.ServerMetadataItemCounts.Tags == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ServerMetadataItemCounts.Tags(childComplexity), true
 
 	case "Studio.id":
 		if e.ComplexityRoot.Studio.ID == nil {
@@ -942,6 +993,21 @@ func newExecutionContext(
 }
 
 var sources = []*ast.Source{
+	{Name: "../../schema/metadata.graphql", Input: `type ServerMetadataItemCounts {
+  tags: Int!
+  performers: Int!
+}
+
+type ServerMetadata {
+  version: String!
+  endpoint: String!
+  itemCounts: ServerMetadataItemCounts!
+}
+
+extend type Query {
+  serverMetadata: ServerMetadata!
+}
+`, BuiltIn: false},
 	{Name: "../../schema/performer.graphql", Input: `type Performer {
   id: ID!
   name: String!
@@ -1329,6 +1395,28 @@ func (ec *executionContext) childFields_PlatformEdge(ctx context.Context, field 
 		return ec.fieldContext_PlatformEdge_cursor(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type PlatformEdge", field.Name)
+}
+
+func (ec *executionContext) childFields_ServerMetadata(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "version":
+		return ec.fieldContext_ServerMetadata_version(ctx, field)
+	case "endpoint":
+		return ec.fieldContext_ServerMetadata_endpoint(ctx, field)
+	case "itemCounts":
+		return ec.fieldContext_ServerMetadata_itemCounts(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type ServerMetadata", field.Name)
+}
+
+func (ec *executionContext) childFields_ServerMetadataItemCounts(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "tags":
+		return ec.fieldContext_ServerMetadataItemCounts_tags(ctx, field)
+	case "performers":
+		return ec.fieldContext_ServerMetadataItemCounts_performers(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type ServerMetadataItemCounts", field.Name)
 }
 
 func (ec *executionContext) childFields_Studio(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -3603,6 +3691,38 @@ func (ec *executionContext) fieldContext_Query_version(_ context.Context, field 
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_serverMetadata(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_serverMetadata(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Query().ServerMetadata(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.ServerMetadata) graphql.Marshaler {
+			return ec.marshalNServerMetadata2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐServerMetadata(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_serverMetadata(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ServerMetadata(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_performers(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4117,6 +4237,130 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _ServerMetadata_version(ctx context.Context, field graphql.CollectedField, obj *model.ServerMetadata) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ServerMetadata_version(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Version, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ServerMetadata_version(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ServerMetadata", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _ServerMetadata_endpoint(ctx context.Context, field graphql.CollectedField, obj *model.ServerMetadata) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ServerMetadata_endpoint(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Endpoint, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ServerMetadata_endpoint(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ServerMetadata", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _ServerMetadata_itemCounts(ctx context.Context, field graphql.CollectedField, obj *model.ServerMetadata) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ServerMetadata_itemCounts(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ItemCounts, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.ServerMetadataItemCounts) graphql.Marshaler {
+			return ec.marshalNServerMetadataItemCounts2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐServerMetadataItemCounts(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ServerMetadata_itemCounts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ServerMetadata",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ServerMetadataItemCounts(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ServerMetadataItemCounts_tags(ctx context.Context, field graphql.CollectedField, obj *model.ServerMetadataItemCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ServerMetadataItemCounts_tags(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Tags, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ServerMetadataItemCounts_tags(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ServerMetadataItemCounts", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _ServerMetadataItemCounts_performers(ctx context.Context, field graphql.CollectedField, obj *model.ServerMetadataItemCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ServerMetadataItemCounts_performers(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Performers, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ServerMetadataItemCounts_performers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ServerMetadataItemCounts", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _Studio_id(ctx context.Context, field graphql.CollectedField, obj *studios.Studio) (ret graphql.Marshaler) {
@@ -7125,6 +7369,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "serverMetadata":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_serverMetadata(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "performers":
 			field := field
 
@@ -7358,6 +7624,97 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			})
 			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var serverMetadataImplementors = []string{"ServerMetadata"}
+
+func (ec *executionContext) _ServerMetadata(ctx context.Context, sel ast.SelectionSet, obj *model.ServerMetadata) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, serverMetadataImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ServerMetadata")
+		case "version":
+			out.Values[i] = ec._ServerMetadata_version(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "endpoint":
+			out.Values[i] = ec._ServerMetadata_endpoint(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "itemCounts":
+			out.Values[i] = ec._ServerMetadata_itemCounts(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var serverMetadataItemCountsImplementors = []string{"ServerMetadataItemCounts"}
+
+func (ec *executionContext) _ServerMetadataItemCounts(ctx context.Context, sel ast.SelectionSet, obj *model.ServerMetadataItemCounts) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, serverMetadataItemCountsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ServerMetadataItemCounts")
+		case "tags":
+			out.Values[i] = ec._ServerMetadataItemCounts_tags(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "performers":
+			out.Values[i] = ec._ServerMetadataItemCounts_performers(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -8437,6 +8794,26 @@ func (ec *executionContext) marshalNPlatformEdge2ᚖgithubᚗcomᚋloadᚑbearin
 		return graphql.Null
 	}
 	return ec._PlatformEdge(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNServerMetadata2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐServerMetadata(ctx context.Context, sel ast.SelectionSet, v *model.ServerMetadata) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ServerMetadata(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNServerMetadataItemCounts2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐServerMetadataItemCounts(ctx context.Context, sel ast.SelectionSet, v *model.ServerMetadataItemCounts) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ServerMetadataItemCounts(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {

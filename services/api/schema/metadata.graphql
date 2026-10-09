@@ -1,0 +1,14 @@
+type ServerMetadataItemCounts {
+  tags: Int!
+  performers: Int!
+}
+
+type ServerMetadata {
+  version: String!
+  endpoint: String!
+  itemCounts: ServerMetadataItemCounts!
+}
+
+extend type Query {
+  serverMetadata: ServerMetadata!
+}

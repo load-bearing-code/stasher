@@ -13,6 +13,10 @@ type Config struct {
 	// every /graphql request (API_KEY). Unset by default so local dev
 	// just works.
 	APIKey string
+	// PublicURL is the externally reachable URL of the GraphQL endpoint
+	// (PUBLIC_URL), reported via serverMetadata. The server sits behind
+	// a proxy, so it cannot derive this from ListenAddr.
+	PublicURL string
 }
 
 // Load reads configuration from the environment, applying defaults.
@@ -21,6 +25,7 @@ func Load() *Config {
 		ListenAddr: envOr("ADDR", ":8080"),
 		DBPath:     envOr("DB_PATH", "stasher.db"),
 		APIKey:     os.Getenv("API_KEY"),
+		PublicURL:  os.Getenv("PUBLIC_URL"),
 	}
 }
 

@@ -51,6 +51,17 @@ type Mutation struct {
 type Query struct {
 }
 
+type ServerMetadata struct {
+	Version    string                    `json:"version"`
+	Endpoint   string                    `json:"endpoint"`
+	ItemCounts *ServerMetadataItemCounts `json:"itemCounts"`
+}
+
+type ServerMetadataItemCounts struct {
+	Tags       int `json:"tags"`
+	Performers int `json:"performers"`
+}
+
 type UpdatePerformerInput struct {
 	ID             string   `json:"id"`
 	Name           string   `json:"name"`

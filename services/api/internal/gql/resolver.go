@@ -15,8 +15,11 @@ var Version = "dev"
 
 type Resolver struct {
 	Services *service.Services
+	// PublicURL is the externally reachable GraphQL endpoint, reported
+	// via serverMetadata.
+	PublicURL string
 }
 
-func New(services *service.Services) *Resolver {
-	return &Resolver{Services: services}
+func New(services *service.Services, publicURL string) *Resolver {
+	return &Resolver{Services: services, PublicURL: publicURL}
 }
