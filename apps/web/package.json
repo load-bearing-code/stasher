@@ -13,12 +13,17 @@
     "@stasher/core": "workspace:*",
     "@stasher/protocol": "workspace:*",
     "@stasher/ui": "workspace:*",
+    "@tanstack/react-query": "^5.104.1",
+    "@tanstack/react-router": "^1.170.41",
     "lucide-react": "^1.52.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.16",
+    "@tanstack/react-query-devtools": "^5.104.1",
+    "@tanstack/react-router-devtools": "^1.167.2",
+    "@tanstack/router-plugin": "^1.168.42",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",

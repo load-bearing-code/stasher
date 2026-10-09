@@ -6,8 +6,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@stasher/ui/components/card";
+import { createFileRoute } from "@tanstack/react-router";
 
-export function App() {
+export const Route = createFileRoute("/")({
+  component: IndexComponent,
+});
+
+function IndexComponent() {
   return (
     <main className="flex min-h-svh items-center justify-center p-6">
       <Card className="w-full max-w-md">
