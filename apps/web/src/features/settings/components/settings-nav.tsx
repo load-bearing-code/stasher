@@ -1,21 +1,29 @@
 import { cn } from "@stasher/ui/lib/utils";
 import { Link, useLocation } from "@tanstack/react-router";
 import { Archive, Globe, Tag } from "lucide-react";
+import { useServerMetadata } from "@/features/settings/library/library-api";
 
 const NAV_ITEMS = [
-  { to: "/settings/library", label: "Library", icon: Archive },
-  { to: "/settings/platforms", label: "Platforms", icon: Globe },
-  { to: "/settings/tags", label: "Tags", icon: Tag },
+  { to: "/settings/library", label: "Library", icon: Archive, countKey: null },
+  {
+    to: "/settings/platforms",
+    label: "Platforms",
+    icon: Globe,
+    countKey: "platforms",
+  },
+  { to: "/settings/tags", label: "Tags", icon: Tag, countKey: "tags" },
 ] as const;
 
 export function SettingsNav() {
   const { pathname } = useLocation();
+  const { data } = useServerMetadata();
 
   return (
     <nav className="flex flex-col gap-0.5">
       {NAV_ITEMS.map((item) => {
         const isActive = pathname === item.to;
         const Icon = item.icon;
+        const count = item.countKey ? data?.itemCounts[item.countKey] : undefined;
         return (
           <Link
             key={item.to}
@@ -28,7 +36,17 @@ export function SettingsNav() {
             )}
           >
             <Icon className={cn("size-4", isActive && "text-tint-text")} />
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+            {count !== undefined ? (
+              <span
+                className={cn(
+                  "rounded-full bg-muted px-1.5 py-0.5 text-[11px] tabular-nums",
+                  isActive ? "text-foreground" : "text-muted-foreground",
+                )}
+              >
+                {count}
+              </span>
+            ) : null}
           </Link>
         );
       })}
