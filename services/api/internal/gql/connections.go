@@ -9,9 +9,13 @@ package gql
 import (
 	"github.com/load-bearing-code/stasher/api/internal/page"
 	"github.com/load-bearing-code/stasher/api/internal/platforms"
+	"github.com/load-bearing-code/stasher/api/internal/studios"
 )
 
 type (
 	PlatformConnection = page.Connection[*platforms.Platform]
 	PlatformEdge       = page.Edge[*platforms.Platform]
+
+	StudioConnection = page.Connection[*studios.Studio]
+	StudioEdge       = page.Edge[*studios.Studio]
 )

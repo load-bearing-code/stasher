@@ -1,0 +1,20 @@
+type Studio {
+  id: ID!
+  name: String!
+}
+
+type StudioEdge {
+  node: Studio!
+  cursor: String!
+}
+
+type StudioConnection {
+  edges: [StudioEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+extend type Query {
+  studios(first: Int, after: String): StudioConnection!
+  studio(id: ID, name: String): Studio
+}

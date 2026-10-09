@@ -37,3 +37,12 @@ models:
   PageInfo:
     model:
       - github.com/load-bearing-code/stasher/api/internal/page.PageInfo
+  Studio:
+    model:
+      - github.com/load-bearing-code/stasher/api/internal/studios.Studio
+  StudioConnection:
+    model:
+      - github.com/load-bearing-code/stasher/api/internal/gql.StudioConnection
+  StudioEdge:
+    model:
+      - github.com/load-bearing-code/stasher/api/internal/gql.StudioEdge
