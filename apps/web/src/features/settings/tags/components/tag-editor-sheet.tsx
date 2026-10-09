@@ -29,7 +29,11 @@ import {
 const HINTS_STORAGE_KEY = "stasher.tagEditor.hintsDismissed";
 
 // Three detents for the sheet, cycled by the grab handle or ArrowUp/Down.
+// Kept as literal class names so Tailwind's JIT scanner can see them.
 const DETENT_HEIGHTS = ["h-[42svh]", "h-[62svh]", "h-[85svh]"];
+// Same values in vh, exported so the grid behind the sheet can reserve
+// matching space as the sheet's detent grows.
+export const DETENT_HEIGHTS_VH = [42, 62, 85] as const;
 
 interface TagEditorSheetProps {
   open: boolean;
@@ -38,6 +42,8 @@ interface TagEditorSheetProps {
   tag: Tag | null;
   allTags: Tag[];
   orderedIds: string[];
+  size: number;
+  onSizeChange: (size: number) => void;
   onNavigate: (id: string) => void;
   onCreated: (tag: Tag) => void;
 }
@@ -80,10 +86,11 @@ export function TagEditorSheet({
   tag,
   allTags,
   orderedIds,
+  size,
+  onSizeChange,
   onNavigate,
   onCreated,
 }: TagEditorSheetProps) {
-  const [size, setSize] = useState(1);
   const [draftName, setDraftName] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [hintsDismissed, dismissHints] = useDismissedHints();
@@ -156,12 +163,12 @@ export function TagEditorSheet({
         break;
       case "ArrowUp":
         event.preventDefault();
-        setSize((s) => Math.min(DETENT_HEIGHTS.length - 1, s + 1));
+        onSizeChange(Math.min(DETENT_HEIGHTS.length - 1, size + 1));
         dismissHints();
         break;
       case "ArrowDown":
         event.preventDefault();
-        setSize((s) => Math.max(0, s - 1));
+        onSizeChange(Math.max(0, size - 1));
         dismissHints();
         break;
       case "ArrowLeft":
@@ -188,7 +195,7 @@ export function TagEditorSheet({
         onHandleClick={
           isCreate
             ? undefined
-            : () => setSize((s) => (s + 1) % DETENT_HEIGHTS.length)
+            : () => onSizeChange((size + 1) % DETENT_HEIGHTS.length)
         }
         onKeyDown={handleKeyDown}
         className={cn(!isCreate && DETENT_HEIGHTS[size])}
@@ -333,8 +340,8 @@ export function TagEditorSheet({
           </SheetBody>
         ) : (
           <>
-            <SheetBody className="flex flex-col gap-5 py-2">
-              <section className="flex flex-col gap-2">
+            <SheetBody className="flex flex-1 flex-col gap-5 py-2">
+              <section className="flex min-h-0 flex-1 flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                     Posts · 0
@@ -344,14 +351,16 @@ export function TagEditorSheet({
                     Tag posts
                   </Button>
                 </div>
-                <div className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-[13px] text-muted-foreground">
-                  No posts have this tag yet. Use{" "}
-                  <span className="text-foreground underline">Tag posts</span>
-                  {" "}to choose some.
+                <div className="flex min-h-20 flex-1 flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border border-dashed border-border px-3 py-6 text-center text-[13px] leading-relaxed text-muted-foreground">
+                  No posts have this tag yet.
+                  <Button variant="secondary" size="sm" disabled>
+                    <Plus data-icon="inline-start" />
+                    Tag posts
+                  </Button>
                 </div>
               </section>
 
-              <section className="flex flex-col gap-2">
+              <section className="flex min-h-0 flex-1 flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                     Performers · {tag?.performers.length ?? 0}
@@ -361,6 +370,7 @@ export function TagEditorSheet({
                     Tag performers
                   </Button>
                 </div>
+
                 {tag && tag.performers.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
                     {tag.performers.map((performer) => (
@@ -381,12 +391,12 @@ export function TagEditorSheet({
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-[13px] text-muted-foreground">
-                    No performers linked yet. Use{" "}
-                    <span className="text-foreground underline">
+                  <div className="flex min-h-20 flex-1 flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border border-dashed border-border px-3 py-6 text-center text-[13px] leading-relaxed text-muted-foreground">
+                    No performers linked yet.
+                    <Button variant="secondary" size="sm" disabled>
+                      <Plus data-icon="inline-start" />
                       Tag performers
-                    </span>
-                    {" "}to choose some.
+                    </Button>
                   </div>
                 )}
               </section>

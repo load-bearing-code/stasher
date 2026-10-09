@@ -8,7 +8,10 @@ import {
 } from "@/features/settings/tags/tags-api";
 import { AddTagTile } from "@/features/settings/tags/components/add-tag-tile";
 import { TagCard } from "@/features/settings/tags/components/tag-card";
-import { TagEditorSheet } from "@/features/settings/tags/components/tag-editor-sheet";
+import {
+  DETENT_HEIGHTS_VH,
+  TagEditorSheet,
+} from "@/features/settings/tags/components/tag-editor-sheet";
 import type { TagCardData } from "@/features/settings/tags/types";
 
 export function TagsSection() {
@@ -18,6 +21,14 @@ export function TagsSection() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<"edit" | "create">("edit");
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [sheetSize, setSheetSize] = useState(1);
+
+  // Reserve space below the grid matching the sheet's current detent, so
+  // expanding the sheet doesn't permanently bury the row behind it.
+  const gridPaddingBottom =
+    editorOpen && editorMode === "edit"
+      ? `${DETENT_HEIGHTS_VH[sheetSize]}svh`
+      : undefined;
 
   const visible = useMemo<TagCardData[]>(
     () =>
@@ -104,7 +115,10 @@ export function TagsSection() {
           Loading tags…
         </div>
       ) : (
-        <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(150px,1fr))]">
+        <div
+          className="grid gap-3 transition-[padding-bottom] duration-300 ease-out [grid-template-columns:repeat(auto-fill,minmax(150px,1fr))]"
+          style={{ paddingBottom: gridPaddingBottom }}
+        >
           <AddTagTile onClick={openCreate} />
           {visible.map((tag) => (
             <TagCard
@@ -125,6 +139,8 @@ export function TagsSection() {
         tag={activeTag}
         allTags={allTags}
         orderedIds={orderedIds}
+        size={sheetSize}
+        onSizeChange={setSheetSize}
         onNavigate={setActiveId}
         onCreated={(created) => {
           setActiveId(created.id);
