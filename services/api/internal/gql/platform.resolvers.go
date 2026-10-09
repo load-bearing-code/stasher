@@ -8,9 +8,15 @@ package gql
 import (
 	"context"
 
+	"github.com/load-bearing-code/stasher/api/internal/gql/model"
 	"github.com/load-bearing-code/stasher/api/internal/page"
 	"github.com/load-bearing-code/stasher/api/internal/platforms"
 )
+
+// CreatePlatform is the resolver for the createPlatform field.
+func (r *mutationResolver) CreatePlatform(ctx context.Context, input model.CreatePlatformInput) (*platforms.Platform, error) {
+	return r.Services.Platforms.Create(ctx, string(input.ID), input.Name)
+}
 
 // Platforms is the resolver for the platforms field.
 func (r *queryResolver) Platforms(ctx context.Context, first *int, after *string) (*page.Connection[*platforms.Platform], error) {
@@ -24,3 +30,8 @@ func (r *queryResolver) Platforms(ctx context.Context, first *int, after *string
 	}
 	return page.NewConnection(res, args.After != nil, (*platforms.Platform).Cursor, r.Services.Platforms.Count), nil
 }
+
+// Mutation returns MutationResolver implementation.
+func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
+
+type mutationResolver struct{ *Resolver }

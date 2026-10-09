@@ -60,6 +60,15 @@ func (r *Repository) Count(ctx context.Context) (int, error) {
 	return count, nil
 }
 
+// Create inserts a new platform row and returns it.
+func (r *Repository) Create(ctx context.Context, id, name string) (*Platform, error) {
+	_, err := r.db.ExecContext(ctx, r.db.Rebind(`INSERT INTO platforms (id, name) VALUES (?, ?)`), id, name)
+	if err != nil {
+		return nil, err
+	}
+	return &Platform{ID: id, Name: name}, nil
+}
+
 // ListByIDs returns the platforms matching ids, in no particular order
 // and omitting any id with no matching row. It's the batch fetch a
 // dataloader collapses many per-row Platform lookups into.

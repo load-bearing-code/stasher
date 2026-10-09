@@ -37,6 +37,11 @@ func (s *Service) Count(ctx context.Context) (int, error) {
 	return s.repo.Count(ctx)
 }
 
+// Create adds a new platform and returns it.
+func (s *Service) Create(ctx context.Context, id, name string) (*Platform, error) {
+	return s.repo.Create(ctx, id, name)
+}
+
 // GetByIDs returns the platforms matching ids, keyed by id. An id with no
 // matching row is simply absent from the map, letting callers (e.g. a
 // dataloader) decide how to treat a miss.

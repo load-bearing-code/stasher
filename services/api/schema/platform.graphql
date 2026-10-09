@@ -17,3 +17,12 @@ type PlatformConnection {
 extend type Query {
   platforms(first: Int, after: String): PlatformConnection!
 }
+
+input CreatePlatformInput {
+  id: ID!
+  name: String!
+}
+
+type Mutation {
+  createPlatform(input: CreatePlatformInput!): Platform!
+}
