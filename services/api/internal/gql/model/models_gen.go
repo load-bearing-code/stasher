@@ -2,6 +2,12 @@
 
 package model
 
+type CreatePerformerInput struct {
+	Name           string   `json:"name"`
+	Disambiguation *string  `json:"disambiguation,omitempty"`
+	Aliases        []string `json:"aliases,omitempty"`
+}
+
 type CreatePlatformInput struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
@@ -12,10 +18,21 @@ type CreateStudioInput struct {
 	Name string `json:"name"`
 }
 
+type DeletePerformerInput struct {
+	ID string `json:"id"`
+}
+
 type Mutation struct {
 }
 
 type Query struct {
+}
+
+type UpdatePerformerInput struct {
+	ID             string   `json:"id"`
+	Name           string   `json:"name"`
+	Disambiguation *string  `json:"disambiguation,omitempty"`
+	Aliases        []string `json:"aliases,omitempty"`
 }
 
 type UpdatePlatformInput struct {

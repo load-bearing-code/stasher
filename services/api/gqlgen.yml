@@ -46,3 +46,12 @@ models:
   StudioEdge:
     model:
       - github.com/load-bearing-code/stasher/api/internal/gql.StudioEdge
+  Performer:
+    model:
+      - github.com/load-bearing-code/stasher/api/internal/performers.Performer
+  PerformerConnection:
+    model:
+      - github.com/load-bearing-code/stasher/api/internal/gql.PerformerConnection
+  PerformerEdge:
+    model:
+      - github.com/load-bearing-code/stasher/api/internal/gql.PerformerEdge

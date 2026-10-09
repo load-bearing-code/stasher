@@ -2,8 +2,8 @@
 
 # --- arguments ---------------------------------
 
-ARG GO_VERSION="1.26.0" \
-    GO_VERSION_CHECKSUM="sha256:4e603da0ea8df4a8ab10cbf0b3061f7823d277e82ea210a47c32a5fafb43cc43"
+ARG GO_VERSION="1.27.2" \
+    GO_VERSION_CHECKSUM="sha256:e58d6f83b3416618d8bcac2b3dde1b7f7e3c4a77d25e88637f8bbae81536c48d"
 
 ARG DEBIAN_VERSION="trixie-slim" \
     DEBIAN_VERSION_CHECKSUM="sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f"

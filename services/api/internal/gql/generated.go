@@ -15,6 +15,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/introspection"
 	"github.com/load-bearing-code/stasher/api/internal/gql/model"
 	"github.com/load-bearing-code/stasher/api/internal/page"
+	"github.com/load-bearing-code/stasher/api/internal/performers"
 	"github.com/load-bearing-code/stasher/api/internal/platforms"
 	"github.com/load-bearing-code/stasher/api/internal/studios"
 	gqlparser "github.com/vektah/gqlparser/v2"
@@ -40,10 +41,13 @@ type DirectiveRoot struct {
 
 type ComplexityRoot struct {
 	Mutation struct {
-		CreatePlatform func(childComplexity int, input model.CreatePlatformInput) int
-		CreateStudio   func(childComplexity int, input model.CreateStudioInput) int
-		UpdatePlatform func(childComplexity int, input model.UpdatePlatformInput) int
-		UpdateStudio   func(childComplexity int, input model.UpdateStudioInput) int
+		CreatePerformer func(childComplexity int, input model.CreatePerformerInput) int
+		CreatePlatform  func(childComplexity int, input model.CreatePlatformInput) int
+		CreateStudio    func(childComplexity int, input model.CreateStudioInput) int
+		DeletePerformer func(childComplexity int, input model.DeletePerformerInput) int
+		UpdatePerformer func(childComplexity int, input model.UpdatePerformerInput) int
+		UpdatePlatform  func(childComplexity int, input model.UpdatePlatformInput) int
+		UpdateStudio    func(childComplexity int, input model.UpdateStudioInput) int
 	}
 
 	PageInfo struct {
@@ -51,6 +55,26 @@ type ComplexityRoot struct {
 		HasNextPage     func(childComplexity int) int
 		HasPreviousPage func(childComplexity int) int
 		StartCursor     func(childComplexity int) int
+	}
+
+	Performer struct {
+		Aliases        func(childComplexity int) int
+		CreatedAt      func(childComplexity int) int
+		Disambiguation func(childComplexity int) int
+		ID             func(childComplexity int) int
+		Name           func(childComplexity int) int
+		UpdatedAt      func(childComplexity int) int
+	}
+
+	PerformerConnection struct {
+		Edges      func(childComplexity int) int
+		PageInfo   func(childComplexity int) int
+		TotalCount func(childComplexity int) int
+	}
+
+	PerformerEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
 	}
 
 	Platform struct {
@@ -70,11 +94,13 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Platform  func(childComplexity int, id *string, name *string) int
-		Platforms func(childComplexity int, first *int, after *string) int
-		Studio    func(childComplexity int, id *string, name *string) int
-		Studios   func(childComplexity int, first *int, after *string) int
-		Version   func(childComplexity int) int
+		Performer  func(childComplexity int, id *string, name *string) int
+		Performers func(childComplexity int, first *int, after *string) int
+		Platform   func(childComplexity int, id *string, name *string) int
+		Platforms  func(childComplexity int, first *int, after *string) int
+		Studio     func(childComplexity int, id *string, name *string) int
+		Studios    func(childComplexity int, first *int, after *string) int
+		Version    func(childComplexity int) int
 	}
 
 	Studio struct {
@@ -105,11 +131,16 @@ type ComplexityRoot struct {
 type MutationResolver interface {
 	CreatePlatform(ctx context.Context, input model.CreatePlatformInput) (*platforms.Platform, error)
 	UpdatePlatform(ctx context.Context, input model.UpdatePlatformInput) (*platforms.Platform, error)
+	CreatePerformer(ctx context.Context, input model.CreatePerformerInput) (*performers.Performer, error)
+	UpdatePerformer(ctx context.Context, input model.UpdatePerformerInput) (*performers.Performer, error)
+	DeletePerformer(ctx context.Context, input model.DeletePerformerInput) (bool, error)
 	CreateStudio(ctx context.Context, input model.CreateStudioInput) (*studios.Studio, error)
 	UpdateStudio(ctx context.Context, input model.UpdateStudioInput) (*studios.Studio, error)
 }
 type QueryResolver interface {
 	Version(ctx context.Context) (*model.Version, error)
+	Performers(ctx context.Context, first *int, after *string) (*page.Connection[*performers.Performer], error)
+	Performer(ctx context.Context, id *string, name *string) (*performers.Performer, error)
 	Platforms(ctx context.Context, first *int, after *string) (*page.Connection[*platforms.Platform], error)
 	Platform(ctx context.Context, id *string, name *string) (*platforms.Platform, error)
 	Studios(ctx context.Context, first *int, after *string) (*page.Connection[*studios.Studio], error)
@@ -134,6 +165,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	_ = ec
 	switch typeName + "." + field {
 
+	case "Mutation.createPerformer":
+		if e.ComplexityRoot.Mutation.CreatePerformer == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createPerformer_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.CreatePerformer(childComplexity, args["input"].(model.CreatePerformerInput)), true
 	case "Mutation.createPlatform":
 		if e.ComplexityRoot.Mutation.CreatePlatform == nil {
 			break
@@ -156,6 +198,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.CreateStudio(childComplexity, args["input"].(model.CreateStudioInput)), true
+	case "Mutation.deletePerformer":
+		if e.ComplexityRoot.Mutation.DeletePerformer == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deletePerformer_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.DeletePerformer(childComplexity, args["input"].(model.DeletePerformerInput)), true
+	case "Mutation.updatePerformer":
+		if e.ComplexityRoot.Mutation.UpdatePerformer == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updatePerformer_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.UpdatePerformer(childComplexity, args["input"].(model.UpdatePerformerInput)), true
 	case "Mutation.updatePlatform":
 		if e.ComplexityRoot.Mutation.UpdatePlatform == nil {
 			break
@@ -204,6 +268,75 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.PageInfo.StartCursor(childComplexity), true
 
+	case "Performer.aliases":
+		if e.ComplexityRoot.Performer.Aliases == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Performer.Aliases(childComplexity), true
+	case "Performer.createdAt":
+		if e.ComplexityRoot.Performer.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Performer.CreatedAt(childComplexity), true
+	case "Performer.disambiguation":
+		if e.ComplexityRoot.Performer.Disambiguation == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Performer.Disambiguation(childComplexity), true
+	case "Performer.id":
+		if e.ComplexityRoot.Performer.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Performer.ID(childComplexity), true
+	case "Performer.name":
+		if e.ComplexityRoot.Performer.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Performer.Name(childComplexity), true
+	case "Performer.updatedAt":
+		if e.ComplexityRoot.Performer.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Performer.UpdatedAt(childComplexity), true
+
+	case "PerformerConnection.edges":
+		if e.ComplexityRoot.PerformerConnection.Edges == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PerformerConnection.Edges(childComplexity), true
+	case "PerformerConnection.pageInfo":
+		if e.ComplexityRoot.PerformerConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PerformerConnection.PageInfo(childComplexity), true
+	case "PerformerConnection.totalCount":
+		if e.ComplexityRoot.PerformerConnection.TotalCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PerformerConnection.TotalCount(childComplexity), true
+
+	case "PerformerEdge.cursor":
+		if e.ComplexityRoot.PerformerEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PerformerEdge.Cursor(childComplexity), true
+	case "PerformerEdge.node":
+		if e.ComplexityRoot.PerformerEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PerformerEdge.Node(childComplexity), true
+
 	case "Platform.id":
 		if e.ComplexityRoot.Platform.ID == nil {
 			break
@@ -249,6 +382,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.PlatformEdge.Node(childComplexity), true
 
+	case "Query.performer":
+		if e.ComplexityRoot.Query.Performer == nil {
+			break
+		}
+
+		args, err := ec.field_Query_performer_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.Performer(childComplexity, args["id"].(*string), args["name"].(*string)), true
+	case "Query.performers":
+		if e.ComplexityRoot.Query.Performers == nil {
+			break
+		}
+
+		args, err := ec.field_Query_performers_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.Performers(childComplexity, args["first"].(*int), args["after"].(*string)), true
 	case "Query.platform":
 		if e.ComplexityRoot.Query.Platform == nil {
 			break
@@ -360,8 +515,11 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := newExecutionContext(opCtx, e, make(chan graphql.DeferredResult))
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputCreatePerformerInput,
 		ec.unmarshalInputCreatePlatformInput,
 		ec.unmarshalInputCreateStudioInput,
+		ec.unmarshalInputDeletePerformerInput,
+		ec.unmarshalInputUpdatePerformerInput,
 		ec.unmarshalInputUpdatePlatformInput,
 		ec.unmarshalInputUpdateStudioInput,
 	)
@@ -439,6 +597,54 @@ func newExecutionContext(
 }
 
 var sources = []*ast.Source{
+	{Name: "../../schema/performer.graphql", Input: `type Performer {
+  id: ID!
+  name: String!
+  disambiguation: String
+  aliases: [String!]!
+  createdAt: String!
+  updatedAt: String
+}
+
+type PerformerEdge {
+  node: Performer!
+  cursor: String!
+}
+
+type PerformerConnection {
+  edges: [PerformerEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+extend type Query {
+  performers(first: Int, after: String): PerformerConnection!
+  performer(id: ID, name: String): Performer
+}
+
+input CreatePerformerInput {
+  name: String!
+  disambiguation: String
+  aliases: [String!]
+}
+
+input UpdatePerformerInput {
+  id: ID!
+  name: String!
+  disambiguation: String
+  aliases: [String!]
+}
+
+input DeletePerformerInput {
+  id: ID!
+}
+
+extend type Mutation {
+  createPerformer(input: CreatePerformerInput!): Performer!
+  updatePerformer(input: UpdatePerformerInput!): Performer!
+  deletePerformer(input: DeletePerformerInput!): Boolean!
+}
+`, BuiltIn: false},
 	{Name: "../../schema/platform.graphql", Input: `type Platform {
   id: ID!
   name: String!
@@ -554,6 +760,46 @@ func (ec *executionContext) childFields_PageInfo(ctx context.Context, field grap
 		return ec.fieldContext_PageInfo_endCursor(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+}
+
+func (ec *executionContext) childFields_Performer(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Performer_id(ctx, field)
+	case "name":
+		return ec.fieldContext_Performer_name(ctx, field)
+	case "disambiguation":
+		return ec.fieldContext_Performer_disambiguation(ctx, field)
+	case "aliases":
+		return ec.fieldContext_Performer_aliases(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_Performer_createdAt(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_Performer_updatedAt(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Performer", field.Name)
+}
+
+func (ec *executionContext) childFields_PerformerConnection(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "edges":
+		return ec.fieldContext_PerformerConnection_edges(ctx, field)
+	case "pageInfo":
+		return ec.fieldContext_PerformerConnection_pageInfo(ctx, field)
+	case "totalCount":
+		return ec.fieldContext_PerformerConnection_totalCount(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type PerformerConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_PerformerEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "node":
+		return ec.fieldContext_PerformerEdge_node(ctx, field)
+	case "cursor":
+		return ec.fieldContext_PerformerEdge_cursor(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type PerformerEdge", field.Name)
 }
 
 func (ec *executionContext) childFields_Platform(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -744,6 +990,20 @@ func (ec *executionContext) childFields___Type(ctx context.Context, field graphq
 
 // region    ***************************** args.gotpl *****************************
 
+func (ec *executionContext) field_Mutation_createPerformer_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.CreatePerformerInput, error) {
+			return ec.unmarshalNCreatePerformerInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐCreatePerformerInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_createPlatform_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -764,6 +1024,34 @@ func (ec *executionContext) field_Mutation_createStudio_args(ctx context.Context
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (model.CreateStudioInput, error) {
 			return ec.unmarshalNCreateStudioInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐCreateStudioInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deletePerformer_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.DeletePerformerInput, error) {
+			return ec.unmarshalNDeletePerformerInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐDeletePerformerInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updatePerformer_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.UpdatePerformerInput, error) {
+			return ec.unmarshalNUpdatePerformerInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐUpdatePerformerInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -811,6 +1099,50 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 		return nil, err
 	}
 	args["name"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_performer_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOID2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "name",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["name"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_performers_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg1
 	return args, nil
 }
 
@@ -1050,6 +1382,138 @@ func (ec *executionContext) fieldContext_Mutation_updatePlatform(ctx context.Con
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_createPerformer(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_createPerformer(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().CreatePerformer(ctx, fc.Args["input"].(model.CreatePerformerInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *performers.Performer) graphql.Marshaler {
+			return ec.marshalNPerformer2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋperformersᚐPerformer(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_createPerformer(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Performer(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createPerformer_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updatePerformer(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_updatePerformer(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().UpdatePerformer(ctx, fc.Args["input"].(model.UpdatePerformerInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *performers.Performer) graphql.Marshaler {
+			return ec.marshalNPerformer2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋperformersᚐPerformer(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_updatePerformer(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Performer(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updatePerformer_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deletePerformer(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_deletePerformer(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().DeletePerformer(ctx, fc.Args["input"].(model.DeletePerformerInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_deletePerformer(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deletePerformer_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_createStudio(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1228,6 +1692,286 @@ func (ec *executionContext) _PageInfo_endCursor(ctx context.Context, field graph
 }
 func (ec *executionContext) fieldContext_PageInfo_endCursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("PageInfo", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Performer_id(ctx context.Context, field graphql.CollectedField, obj *performers.Performer) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Performer_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID(), nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Performer_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Performer", field, true, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _Performer_name(ctx context.Context, field graphql.CollectedField, obj *performers.Performer) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Performer_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Performer_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Performer", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Performer_disambiguation(ctx context.Context, field graphql.CollectedField, obj *performers.Performer) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Performer_disambiguation(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Disambiguation, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Performer_disambiguation(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Performer", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Performer_aliases(ctx context.Context, field graphql.CollectedField, obj *performers.Performer) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Performer_aliases(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Aliases, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNString2ᚕstringᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Performer_aliases(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Performer", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Performer_createdAt(ctx context.Context, field graphql.CollectedField, obj *performers.Performer) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Performer_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Performer_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Performer", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Performer_updatedAt(ctx context.Context, field graphql.CollectedField, obj *performers.Performer) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Performer_updatedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Performer_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Performer", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _PerformerConnection_edges(ctx context.Context, field graphql.CollectedField, obj *page.Connection[*performers.Performer]) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PerformerConnection_edges(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*page.Edge[*performers.Performer]) graphql.Marshaler {
+			return ec.marshalNPerformerEdge2ᚕᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐEdgeᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PerformerConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformerConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PerformerEdge(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformerConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *page.Connection[*performers.Performer]) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PerformerConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *page.PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PerformerConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformerConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformerConnection_totalCount(ctx context.Context, field graphql.CollectedField, obj *page.Connection[*performers.Performer]) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PerformerConnection_totalCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TotalCount(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PerformerConnection_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PerformerConnection", field, true, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _PerformerEdge_node(ctx context.Context, field graphql.CollectedField, obj *page.Edge[*performers.Performer]) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PerformerEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *performers.Performer) graphql.Marshaler {
+			return ec.marshalNPerformer2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋperformersᚐPerformer(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PerformerEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PerformerEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Performer(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PerformerEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *page.Edge[*performers.Performer]) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PerformerEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PerformerEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PerformerEdge", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _Platform_id(ctx context.Context, field graphql.CollectedField, obj *platforms.Platform) (ret graphql.Marshaler) {
@@ -1446,6 +2190,94 @@ func (ec *executionContext) fieldContext_Query_version(_ context.Context, field 
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_Version(ctx, field)
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_performers(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_performers(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().Performers(ctx, fc.Args["first"].(*int), fc.Args["after"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *page.Connection[*performers.Performer]) graphql.Marshaler {
+			return ec.marshalNPerformerConnection2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_performers(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PerformerConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_performers_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_performer(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_performer(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().Performer(ctx, fc.Args["id"].(*string), fc.Args["name"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *performers.Performer) graphql.Marshaler {
+			return ec.marshalOPerformer2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋperformersᚐPerformer(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Query_performer(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Performer(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_performer_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -2972,6 +3804,50 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputCreatePerformerInput(ctx context.Context, obj any) (model.CreatePerformerInput, error) {
+	var it model.CreatePerformerInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name", "disambiguation", "aliases"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "disambiguation":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("disambiguation"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Disambiguation = data
+		case "aliases":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("aliases"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Aliases = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputCreatePlatformInput(ctx context.Context, obj any) (model.CreatePlatformInput, error) {
 	var it model.CreatePlatformInput
 	if obj == nil {
@@ -3041,6 +3917,87 @@ func (ec *executionContext) unmarshalInputCreateStudioInput(ctx context.Context,
 				return it, err
 			}
 			it.Name = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputDeletePerformerInput(ctx context.Context, obj any) (model.DeletePerformerInput, error) {
+	var it model.DeletePerformerInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputUpdatePerformerInput(ctx context.Context, obj any) (model.UpdatePerformerInput, error) {
+	var it model.UpdatePerformerInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "name", "disambiguation", "aliases"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "disambiguation":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("disambiguation"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Disambiguation = data
+		case "aliases":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("aliases"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Aliases = data
 		}
 	}
 	return it, nil
@@ -3162,6 +4119,27 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "createPerformer":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createPerformer(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updatePerformer":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updatePerformer(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deletePerformer":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deletePerformer(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "createStudio":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createStudio(ctx, field)
@@ -3227,6 +4205,193 @@ func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet,
 		case "endCursor":
 			out.Values[i] = ec._PageInfo_endCursor(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var performerImplementors = []string{"Performer"}
+
+func (ec *executionContext) _Performer(ctx context.Context, sel ast.SelectionSet, obj *performers.Performer) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, performerImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Performer")
+		case "id":
+			out.Values[i] = ec._Performer_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._Performer_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "disambiguation":
+			out.Values[i] = ec._Performer_disambiguation(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "aliases":
+			out.Values[i] = ec._Performer_aliases(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createdAt":
+			out.Values[i] = ec._Performer_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updatedAt":
+			out.Values[i] = ec._Performer_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var performerConnectionImplementors = []string{"PerformerConnection"}
+
+func (ec *executionContext) _PerformerConnection(ctx context.Context, sel ast.SelectionSet, obj *page.Connection[*performers.Performer]) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, performerConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PerformerConnection")
+		case "edges":
+			out.Values[i] = ec._PerformerConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "pageInfo":
+			out.Values[i] = ec._PerformerConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "totalCount":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._PerformerConnection_totalCount(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var performerEdgeImplementors = []string{"PerformerEdge"}
+
+func (ec *executionContext) _PerformerEdge(ctx context.Context, sel ast.SelectionSet, obj *page.Edge[*performers.Performer]) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, performerEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PerformerEdge")
+		case "node":
+			out.Values[i] = ec._PerformerEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cursor":
+			out.Values[i] = ec._PerformerEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		default:
@@ -3448,6 +4613,50 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				}()
 				res = ec._Query_version(ctx, field)
 				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "performers":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_performers(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "performer":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_performer(ctx, field)
+				if res == graphql.RequiredNull {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
 				return res
@@ -4195,6 +5404,11 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
+func (ec *executionContext) unmarshalNCreatePerformerInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐCreatePerformerInput(ctx context.Context, v any) (model.CreatePerformerInput, error) {
+	res, err := ec.unmarshalInputCreatePerformerInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNCreatePlatformInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐCreatePlatformInput(ctx context.Context, v any) (model.CreatePlatformInput, error) {
 	res, err := ec.unmarshalInputCreatePlatformInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -4202,6 +5416,11 @@ func (ec *executionContext) unmarshalNCreatePlatformInput2githubᚗcomᚋloadᚑ
 
 func (ec *executionContext) unmarshalNCreateStudioInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐCreateStudioInput(ctx context.Context, v any) (model.CreateStudioInput, error) {
 	res, err := ec.unmarshalInputCreateStudioInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNDeletePerformerInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐDeletePerformerInput(ctx context.Context, v any) (model.DeletePerformerInput, error) {
+	res, err := ec.unmarshalInputDeletePerformerInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -4245,6 +5464,52 @@ func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋloadᚑbearingᚑ
 		return graphql.Null
 	}
 	return ec._PageInfo(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNPerformer2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋperformersᚐPerformer(ctx context.Context, sel ast.SelectionSet, v *performers.Performer) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Performer(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNPerformerConnection2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐConnection(ctx context.Context, sel ast.SelectionSet, v *page.Connection[*performers.Performer]) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._PerformerConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNPerformerEdge2ᚕᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*page.Edge[*performers.Performer]) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNPerformerEdge2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐEdge(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNPerformerEdge2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐEdge(ctx context.Context, sel ast.SelectionSet, v *page.Edge[*performers.Performer]) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._PerformerEdge(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNPlatform2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋplatformsᚐPlatform(ctx context.Context, sel ast.SelectionSet, v *platforms.Platform) graphql.Marshaler {
@@ -4309,6 +5574,35 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 	return res
 }
 
+func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) marshalNStudio2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋstudiosᚐStudio(ctx context.Context, sel ast.SelectionSet, v *studios.Studio) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -4353,6 +5647,11 @@ func (ec *executionContext) marshalNStudioEdge2ᚖgithubᚗcomᚋloadᚑbearing�
 		return graphql.Null
 	}
 	return ec._StudioEdge(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNUpdatePerformerInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐUpdatePerformerInput(ctx context.Context, v any) (model.UpdatePerformerInput, error) {
+	res, err := ec.unmarshalInputUpdatePerformerInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalNUpdatePlatformInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐUpdatePlatformInput(ctx context.Context, v any) (model.UpdatePlatformInput, error) {
@@ -4581,11 +5880,53 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	return res
 }
 
+func (ec *executionContext) marshalOPerformer2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋperformersᚐPerformer(ctx context.Context, sel ast.SelectionSet, v *performers.Performer) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Performer(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalOPlatform2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋplatformsᚐPlatform(ctx context.Context, sel ast.SelectionSet, v *platforms.Platform) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Platform(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {

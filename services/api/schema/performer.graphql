@@ -1,0 +1,47 @@
+type Performer {
+  id: ID!
+  name: String!
+  disambiguation: String
+  aliases: [String!]!
+  createdAt: String!
+  updatedAt: String
+}
+
+type PerformerEdge {
+  node: Performer!
+  cursor: String!
+}
+
+type PerformerConnection {
+  edges: [PerformerEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+extend type Query {
+  performers(first: Int, after: String): PerformerConnection!
+  performer(id: ID, name: String): Performer
+}
+
+input CreatePerformerInput {
+  name: String!
+  disambiguation: String
+  aliases: [String!]
+}
+
+input UpdatePerformerInput {
+  id: ID!
+  name: String!
+  disambiguation: String
+  aliases: [String!]
+}
+
+input DeletePerformerInput {
+  id: ID!
+}
+
+extend type Mutation {
+  createPerformer(input: CreatePerformerInput!): Performer!
+  updatePerformer(input: UpdatePerformerInput!): Performer!
+  deletePerformer(input: DeletePerformerInput!): Boolean!
+}
