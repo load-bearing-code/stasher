@@ -18,6 +18,11 @@ func (r *mutationResolver) CreatePlatform(ctx context.Context, input model.Creat
 	return r.Services.Platforms.Create(ctx, string(input.ID), input.Name)
 }
 
+// UpdatePlatform is the resolver for the updatePlatform field.
+func (r *mutationResolver) UpdatePlatform(ctx context.Context, input model.UpdatePlatformInput) (*platforms.Platform, error) {
+	return r.Services.Platforms.Update(ctx, string(input.ID), input.Name)
+}
+
 // Platforms is the resolver for the platforms field.
 func (r *queryResolver) Platforms(ctx context.Context, first *int, after *string) (*page.Connection[*platforms.Platform], error) {
 	args, err := page.ParseArgs(first, after)

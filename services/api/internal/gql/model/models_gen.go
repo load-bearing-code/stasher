@@ -13,6 +13,11 @@ type Mutation struct {
 type Query struct {
 }
 
+type UpdatePlatformInput struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type Version struct {
 	Version string `json:"version"`
 }

@@ -42,6 +42,11 @@ func (s *Service) Create(ctx context.Context, id, name string) (*Platform, error
 	return s.repo.Create(ctx, id, name)
 }
 
+// Update changes an existing platform's name and returns it.
+func (s *Service) Update(ctx context.Context, id, name string) (*Platform, error) {
+	return s.repo.Update(ctx, id, name)
+}
+
 // GetByIDs returns the platforms matching ids, keyed by id. An id with no
 // matching row is simply absent from the map, letting callers (e.g. a
 // dataloader) decide how to treat a miss.

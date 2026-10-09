@@ -23,6 +23,12 @@ input CreatePlatformInput {
   name: String!
 }
 
+input UpdatePlatformInput {
+  id: ID!
+  name: String!
+}
+
 type Mutation {
   createPlatform(input: CreatePlatformInput!): Platform!
+  updatePlatform(input: UpdatePlatformInput!): Platform!
 }

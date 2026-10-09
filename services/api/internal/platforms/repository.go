@@ -69,6 +69,15 @@ func (r *Repository) Create(ctx context.Context, id, name string) (*Platform, er
 	return &Platform{ID: id, Name: name}, nil
 }
 
+// Update changes an existing platform's name and returns it.
+func (r *Repository) Update(ctx context.Context, id, name string) (*Platform, error) {
+	_, err := r.db.ExecContext(ctx, r.db.Rebind(`UPDATE platforms SET name = ? WHERE id = ?`), name, id)
+	if err != nil {
+		return nil, err
+	}
+	return &Platform{ID: id, Name: name}, nil
+}
+
 // ListByIDs returns the platforms matching ids, in no particular order
 // and omitting any id with no matching row. It's the batch fetch a
 // dataloader collapses many per-row Platform lookups into.
