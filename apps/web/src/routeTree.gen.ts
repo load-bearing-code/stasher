@@ -11,7 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as FeedRouteImport } from './routes/feed'
-import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SettingsRouteRouteImport } from './routes/settings/route'
+import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as SettingsLibraryRouteImport } from './routes/settings/library'
+import { Route as SettingsMaintenanceRouteImport } from './routes/settings/maintenance'
+import { Route as SettingsTagsRouteImport } from './routes/settings/tags'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,40 +27,92 @@ const FeedRoute = FeedRouteImport.update({
   path: '/feed',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsRoute = SettingsRouteImport.update({
+const SettingsRouteRoute = SettingsRouteRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SettingsRouteRoute,
+} as any)
+const SettingsLibraryRoute = SettingsLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => SettingsRouteRoute,
+} as any)
+const SettingsMaintenanceRoute = SettingsMaintenanceRouteImport.update({
+  id: '/maintenance',
+  path: '/maintenance',
+  getParentRoute: () => SettingsRouteRoute,
+} as any)
+const SettingsTagsRoute = SettingsTagsRouteImport.update({
+  id: '/tags',
+  path: '/tags',
+  getParentRoute: () => SettingsRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/settings': typeof SettingsRouteRouteWithChildren
   '/feed': typeof FeedRoute
-  '/settings': typeof SettingsRoute
+  '/settings/library': typeof SettingsLibraryRoute
+  '/settings/maintenance': typeof SettingsMaintenanceRoute
+  '/settings/tags': typeof SettingsTagsRoute
+  '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/feed': typeof FeedRoute
-  '/settings': typeof SettingsRoute
+  '/settings/library': typeof SettingsLibraryRoute
+  '/settings/maintenance': typeof SettingsMaintenanceRoute
+  '/settings/tags': typeof SettingsTagsRoute
+  '/settings': typeof SettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/settings': typeof SettingsRouteRouteWithChildren
   '/feed': typeof FeedRoute
-  '/settings': typeof SettingsRoute
+  '/settings/library': typeof SettingsLibraryRoute
+  '/settings/maintenance': typeof SettingsMaintenanceRoute
+  '/settings/tags': typeof SettingsTagsRoute
+  '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/feed' | '/settings'
+  fullPaths:
+    | '/'
+    | '/settings'
+    | '/feed'
+    | '/settings/library'
+    | '/settings/maintenance'
+    | '/settings/tags'
+    | '/settings/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/feed' | '/settings'
-  id: '__root__' | '/' | '/feed' | '/settings'
+  to:
+    | '/'
+    | '/feed'
+    | '/settings/library'
+    | '/settings/maintenance'
+    | '/settings/tags'
+    | '/settings'
+  id:
+    | '__root__'
+    | '/'
+    | '/settings'
+    | '/feed'
+    | '/settings/library'
+    | '/settings/maintenance'
+    | '/settings/tags'
+    | '/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SettingsRouteRoute: typeof SettingsRouteRouteWithChildren
   FeedRoute: typeof FeedRoute
-  SettingsRoute: typeof SettingsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -79,16 +135,62 @@ declare module '@tanstack/react-router' {
       id: '/settings'
       path: '/settings'
       fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
+      preLoaderRoute: typeof SettingsRouteRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/settings/': {
+      id: '/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof SettingsRouteRoute
+    }
+    '/settings/library': {
+      id: '/settings/library'
+      path: '/library'
+      fullPath: '/settings/library'
+      preLoaderRoute: typeof SettingsLibraryRouteImport
+      parentRoute: typeof SettingsRouteRoute
+    }
+    '/settings/maintenance': {
+      id: '/settings/maintenance'
+      path: '/maintenance'
+      fullPath: '/settings/maintenance'
+      preLoaderRoute: typeof SettingsMaintenanceRouteImport
+      parentRoute: typeof SettingsRouteRoute
+    }
+    '/settings/tags': {
+      id: '/settings/tags'
+      path: '/tags'
+      fullPath: '/settings/tags'
+      preLoaderRoute: typeof SettingsTagsRouteImport
+      parentRoute: typeof SettingsRouteRoute
     }
   }
 }
 
+interface SettingsRouteRouteChildren {
+  SettingsLibraryRoute: typeof SettingsLibraryRoute
+  SettingsMaintenanceRoute: typeof SettingsMaintenanceRoute
+  SettingsTagsRoute: typeof SettingsTagsRoute
+  SettingsIndexRoute: typeof SettingsIndexRoute
+}
+
+const SettingsRouteRouteChildren: SettingsRouteRouteChildren = {
+  SettingsLibraryRoute: SettingsLibraryRoute,
+  SettingsMaintenanceRoute: SettingsMaintenanceRoute,
+  SettingsTagsRoute: SettingsTagsRoute,
+  SettingsIndexRoute: SettingsIndexRoute,
+}
+
+const SettingsRouteRouteWithChildren = SettingsRouteRoute._addFileChildren(
+  SettingsRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SettingsRouteRoute: SettingsRouteRouteWithChildren,
   FeedRoute: FeedRoute,
-  SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
