@@ -242,7 +242,11 @@ pub struct PerformerCandidate {
 
 /// Messages sent from the extension, through `stasher-host`, to the Tauri app.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub enum HostRequest {
     /// Tracer-bullet round trip: proves extension -> host -> socket -> app -> back.
@@ -318,7 +322,11 @@ pub enum HostRequest {
 
 /// Messages sent from the Tauri app, through `stasher-host`, back to the extension.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub enum HostResponse {
     Pong {

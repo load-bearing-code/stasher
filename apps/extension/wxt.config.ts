@@ -17,7 +17,7 @@ export default defineConfig({
         strict_min_version: "115.0",
       },
     },
-    permissions: ["nativeMessaging", "activeTab", "storage"],
+    permissions: ["nativeMessaging", "activeTab", "storage", "cookies"],
     host_permissions: [
       "*://*.fansly.com/*",
       "*://*.redgifs.com/*",

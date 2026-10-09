@@ -40,9 +40,9 @@ impl NfsWriter for LocalFsWriter {
     }
 
     async fn write_file(&self, relative_path: &Path, bytes: &[u8]) -> Result<PathBuf, CoreError> {
-        let escapes = relative_path.components().any(|component| {
-            !matches!(component, std::path::Component::Normal(_))
-        });
+        let escapes = relative_path
+            .components()
+            .any(|component| !matches!(component, std::path::Component::Normal(_)));
         if escapes {
             return Err(CoreError::Stash(format!(
                 "refusing to write outside the library: {}",

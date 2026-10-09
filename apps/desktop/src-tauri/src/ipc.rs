@@ -57,7 +57,10 @@ async fn handle_connection(
         let response = match serde_json::from_slice::<HostRequest>(&request_bytes) {
             Ok(request) => {
                 last_seen.store(now_millis(), Ordering::Relaxed);
-                core.handle(request).await
+                tracing::info!(?request, "stasher ipc: received request");
+                let response = core.handle(request).await;
+                tracing::info!(?response, "stasher ipc: sending response");
+                response
             }
             Err(err) => HostResponse::Error {
                 message: format!("invalid request: {err}"),

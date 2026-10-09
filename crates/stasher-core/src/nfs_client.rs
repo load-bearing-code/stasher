@@ -23,6 +23,10 @@ use crate::nfs::{LocalFsWriter, NfsWriter};
 
 type Connection = Nfs3Connection<TokioIo<TcpStream>>;
 
+/// Bounds a single NFS RPC (mount, lookup, create, one write chunk, …), not
+/// a whole operation: a multi-hundred-megabyte write is many chunks and can
+/// legitimately run for minutes, but no individual round-trip should stall
+/// longer than this.
 const TIMEOUT: Duration = Duration::from_secs(10);
 const DEFAULT_CHUNK: usize = 32 * 1024;
 const MAX_CHUNK: usize = 1024 * 1024;
@@ -186,7 +190,10 @@ impl Nfs3Writer {
         .await
     }
 
-    async fn list_dirs_on(conn: &mut Connection, dirs: &[String]) -> Result<Vec<String>, CoreError> {
+    async fn list_dirs_on(
+        conn: &mut Connection,
+        dirs: &[String],
+    ) -> Result<Vec<String>, CoreError> {
         let mut dir = conn.root_nfs_fh3();
         for name in dirs {
             dir = lookup(conn, &dir, name)
@@ -238,7 +245,12 @@ impl Nfs3Writer {
             .credential(credential())
             .mount()
             .await
-            .map_err(|err| nfs_err(&format!("could not mount {}:{}", self.server, self.export_path), err))
+            .map_err(|err| {
+                nfs_err(
+                    &format!("could not mount {}:{}", self.server, self.export_path),
+                    err,
+                )
+            })
     }
 
     /// Confirms the export can be mounted and that a file can be created in
@@ -269,7 +281,10 @@ impl Nfs3Writer {
             })
             .await
             .map_err(|err| nfs_err("create", err))?;
-        check(created, "the server refused to create a file in the media folder")?;
+        check(
+            created,
+            "the server refused to create a file in the media folder",
+        )?;
         let removed = conn
             .remove(&nfs3::REMOVE3args {
                 object: dirop(&dir, PROBE),
@@ -297,7 +312,7 @@ impl Nfs3Writer {
             .split_last()
             .ok_or_else(|| CoreError::Nfs("empty file path".into()))?;
 
-        let mut conn = self.connect().await?;
+        let mut conn = with_timeout("connecting to the share", self.connect()).await?;
         let result = self.write_file_on(&mut conn, dirs, file_name, bytes).await;
         let _ = conn.unmount().await;
         result
@@ -312,11 +327,14 @@ impl Nfs3Writer {
     ) -> Result<(), CoreError> {
         let root = conn.root_nfs_fh3();
 
-        let chunk = match conn
-            .fsinfo(&nfs3::FSINFO3args {
+        let chunk = match with_timeout("reading share settings", async {
+            conn.fsinfo(&nfs3::FSINFO3args {
                 fsroot: root.clone(),
             })
             .await
+            .map_err(|err| nfs_err("fsinfo", err))
+        })
+        .await
         {
             Ok(Nfs3Result::Ok(info)) => (info.wtpref as usize).clamp(4096, MAX_CHUNK),
             _ => DEFAULT_CHUNK,
@@ -324,11 +342,11 @@ impl Nfs3Writer {
 
         let mut dir = root;
         for name in dirs {
-            dir = ensure_dir(conn, &dir, name).await?;
+            dir = with_timeout("creating folder", ensure_dir(conn, &dir, name)).await?;
         }
 
-        let created = conn
-            .create(&nfs3::CREATE3args {
+        let created = with_timeout(&format!("create {file_name}"), async {
+            conn.create(&nfs3::CREATE3args {
                 where_: dirop(&dir, file_name),
                 how: nfs3::createhow3::UNCHECKED(nfs3::sattr3 {
                     mode: Nfs3Option::Some(0o644),
@@ -337,11 +355,13 @@ impl Nfs3Writer {
                 }),
             })
             .await
-            .map_err(|err| nfs_err("create", err))?;
+            .map_err(|err| nfs_err("create", err))
+        })
+        .await?;
         let created = check(created, &format!("create {file_name}"))?;
         let file = match created.obj {
             Nfs3Option::Some(fh) => fh,
-            Nfs3Option::None => lookup(conn, &dir, file_name)
+            Nfs3Option::None => with_timeout("lookup", lookup(conn, &dir, file_name))
                 .await?
                 .ok_or_else(|| CoreError::Nfs(format!("{file_name} vanished after creation")))?,
         };
@@ -350,8 +370,8 @@ impl Nfs3Writer {
         while offset < bytes.len() {
             let end = (offset + chunk).min(bytes.len());
             let part = &bytes[offset..end];
-            let result = conn
-                .write(&nfs3::WRITE3args {
+            let result = with_timeout(&format!("write {file_name}"), async {
+                conn.write(&nfs3::WRITE3args {
                     file: file.clone(),
                     offset: offset as u64,
                     count: part.len() as u32,
@@ -359,10 +379,14 @@ impl Nfs3Writer {
                     data: Opaque::borrowed(part),
                 })
                 .await
-                .map_err(|err| nfs_err("write", err))?;
+                .map_err(|err| nfs_err("write", err))
+            })
+            .await?;
             let written = check(result, &format!("write {file_name}"))?.count as usize;
             if written == 0 {
-                return Err(CoreError::Nfs(format!("server wrote 0 bytes of {file_name}")));
+                return Err(CoreError::Nfs(format!(
+                    "server wrote 0 bytes of {file_name}"
+                )));
             }
             offset += written;
         }
@@ -383,7 +407,9 @@ impl NfsWriter for Nfs3Writer {
     }
 
     async fn write_file(&self, relative_path: &Path, bytes: &[u8]) -> Result<PathBuf, CoreError> {
-        with_timeout("writing to the share", self.write_inner(relative_path, bytes))
+        // No overall timeout here: `write_inner` bounds each RPC it makes, so
+        // a large-but-healthy transfer isn't killed just for taking a while.
+        self.write_inner(relative_path, bytes)
             .await
             .inspect_err(|err| tracing::error!("nfs write failed: {err}"))?;
         Ok(self.display_path(relative_path))
@@ -491,7 +517,10 @@ impl SwitchableWriter {
     }
 
     fn remote(&self) -> Option<Arc<Nfs3Writer>> {
-        self.remote.read().expect("remote writer lock poisoned").clone()
+        self.remote
+            .read()
+            .expect("remote writer lock poisoned")
+            .clone()
     }
 }
 

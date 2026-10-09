@@ -5,11 +5,20 @@ export const faphouseHandler: SiteHandler = {
   label: "FapHouse",
   host: "faphouse.com",
 
-  // Post import isn't supported yet: FapHouse profile pages are a
-  // client-rendered SPA, same obstacle as OnlyFans, so only the profile
-  // metadata the page's Open Graph tags expose is scraped for now.
-  matchPost(_url: URL): DetectedPost | null {
-    return null;
+  matchPost(url: URL): DetectedPost | null {
+    const host = url.hostname.replace(/^www\./, "");
+    if (host !== "faphouse.com") return null;
+
+    const [route, slug] = url.pathname.split("/").filter(Boolean);
+    if (route !== "videos" || !slug) return null;
+
+    return {
+      site: "faphouse",
+      postId: slug,
+      // Canonical origin regardless of www., so the same post always
+      // produces the same URL for Stash to match against.
+      postUrl: `https://faphouse.com/videos/${slug}`,
+    };
   },
 
   matchProfile(url: URL): DetectedProfile | null {

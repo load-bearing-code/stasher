@@ -21,8 +21,7 @@ const DEFAULT_BASE_URL: &str = "https://api.redgifs.com";
 /// RedGifs' API rejects requests with no `User-Agent` (400 UserAgentNotFound),
 /// so send a browser-like one. The value doesn't need to match a real browser
 /// version; it just has to be present.
-const USER_AGENT: &str =
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 \
+const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 \
      (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 /// RedGifs' anonymous tokens are valid for a while, but refresh well before
@@ -223,11 +222,10 @@ impl RedgifsClient {
             )));
         }
         let envelope: RedgifsSearchResponse = response.error_for_status()?.json().await?;
-        let user = envelope
-            .users
-            .into_iter()
-            .next()
-            .ok_or_else(|| CoreError::Stash(format!("redgifs: no creator named '{username}'")))?;
+        let user =
+            envelope.users.into_iter().next().ok_or_else(|| {
+                CoreError::Stash(format!("redgifs: no creator named '{username}'"))
+            })?;
         Ok(user_to_profile(user, profile_url))
     }
 
@@ -285,7 +283,14 @@ impl RedgifsClient {
     }
 
     pub async fn download(&self, url: &str) -> Result<Vec<u8>, CoreError> {
-        let bytes = self.http.get(url).send().await?.error_for_status()?.bytes().await?;
+        let bytes = self
+            .http
+            .get(url)
+            .send()
+            .await?
+            .error_for_status()?
+            .bytes()
+            .await?;
         Ok(bytes.to_vec())
     }
 }
@@ -329,7 +334,11 @@ fn user_to_profile(user: RedgifsUser, profile_url: &str) -> SiteProfile {
         .filter_map(|url| url.clone())
         .filter(|url| !url.trim().is_empty())
         .collect();
-    if let Some(primary) = user.profile_url.clone().filter(|url| !url.trim().is_empty()) {
+    if let Some(primary) = user
+        .profile_url
+        .clone()
+        .filter(|url| !url.trim().is_empty())
+    {
         if !links.iter().any(|existing| existing == &primary) {
             links.push(primary);
         }
@@ -360,7 +369,10 @@ fn extract_hashtags(text: &str) -> Vec<String> {
         if tag.is_empty() || tag.contains('#') {
             continue;
         }
-        if !tags.iter().any(|existing| existing.eq_ignore_ascii_case(tag)) {
+        if !tags
+            .iter()
+            .any(|existing| existing.eq_ignore_ascii_case(tag))
+        {
             tags.push(tag.to_string());
         }
     }

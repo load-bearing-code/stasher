@@ -244,13 +244,7 @@ pub async fn test_connection(config: &StashConfig) -> Result<(), CoreError> {
         .timeout(REQUEST_TIMEOUT)
         .build()
         .expect("reqwest client builds");
-    post_graphql::<VersionData>(
-        &http,
-        config,
-        "{ version { version } }",
-        json!({}),
-    )
-    .await?;
+    post_graphql::<VersionData>(&http, config, "{ version { version } }", json!({})).await?;
     Ok(())
 }
 
@@ -553,9 +547,8 @@ impl GraphqlStashClient {
     }
 
     async fn find_by_id(&self, id: &str) -> Result<Performer, CoreError> {
-        let query = format!(
-            "query($id: ID!) {{ findPerformer(id: $id) {{ {PERFORMER_FIELDS} }} }}"
-        );
+        let query =
+            format!("query($id: ID!) {{ findPerformer(id: $id) {{ {PERFORMER_FIELDS} }} }}");
         let data: FindPerformerData = self.request(&query, json!({ "id": id })).await?;
         data.find_performer
             .map(Performer::from)
@@ -900,7 +893,10 @@ mod tests {
             .await;
 
         let client = client_for(&server).await;
-        assert!(client.post_exists("https://fansly.com/post/42").await.unwrap());
+        assert!(client
+            .post_exists("https://fansly.com/post/42")
+            .await
+            .unwrap());
     }
 
     #[tokio::test]
@@ -915,7 +911,10 @@ mod tests {
             .await;
 
         let client = client_for(&server).await;
-        assert!(!client.post_exists("https://fansly.com/post/42").await.unwrap());
+        assert!(!client
+            .post_exists("https://fansly.com/post/42")
+            .await
+            .unwrap());
     }
 
     #[tokio::test]
@@ -950,7 +949,9 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/graphql"))
-            .and(body_partial_json(json!({ "variables": { "tag_filter": {} } })))
+            .and(body_partial_json(
+                json!({ "variables": { "tag_filter": {} } }),
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "data": { "findTags": { "tags": [{ "id": "5" }] } }
             })))

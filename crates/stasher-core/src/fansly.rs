@@ -17,8 +17,7 @@ const SESSION_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 /// Fansly's API rejects requests with no `User-Agent` (403), so send a
 /// browser-like one. The value doesn't need to match a real browser version;
 /// it just has to be present.
-const USER_AGENT: &str =
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 \
+const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 \
      (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 /// Reopening the popup repeatedly would otherwise hammer Fansly and trip 429s.
@@ -160,12 +159,7 @@ impl FanslyClient {
         if let Some(token) = auth_token {
             request = request.header("authorization", token);
         }
-        let envelope: FanslyPostEnvelope = request
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
-            .await?;
+        let envelope: FanslyPostEnvelope = request.send().await?.error_for_status()?.json().await?;
         if envelope.response.posts.is_empty() {
             return Err(CoreError::Stash(format!(
                 "fansly: no post with id '{post_id}'"
@@ -327,7 +321,9 @@ impl FanslyClient {
             .text()
             .await?;
         let mpd: Mpd = quick_xml::de::from_str(&mpd_text).map_err(|err| {
-            CoreError::Stash(format!("fansly: couldn't parse this video's DASH manifest: {err}"))
+            CoreError::Stash(format!(
+                "fansly: couldn't parse this video's DASH manifest: {err}"
+            ))
         })?;
 
         let Some(video_rep) = mpd
@@ -392,7 +388,9 @@ impl FanslyClient {
         let account = self
             .fetch_account(&[("ids", account_id)])
             .await?
-            .ok_or_else(|| CoreError::Stash(format!("fansly: no account with id '{account_id}'")))?;
+            .ok_or_else(|| {
+                CoreError::Stash(format!("fansly: no account with id '{account_id}'"))
+            })?;
         let profile_url = format!("https://fansly.com/{}", account.username);
         Ok(account_to_profile(account, &profile_url))
     }
@@ -483,7 +481,10 @@ fn extract_hashtags(text: &str) -> Vec<String> {
         if tag.is_empty() || tag.contains('#') {
             continue;
         }
-        if !tags.iter().any(|existing| existing.eq_ignore_ascii_case(tag)) {
+        if !tags
+            .iter()
+            .any(|existing| existing.eq_ignore_ascii_case(tag))
+        {
             tags.push(tag.to_string());
         }
     }
@@ -597,7 +598,11 @@ fn ordered_account_media(data: &FanslyPosts) -> Vec<&FanslyAccountMedia> {
             .iter()
             .find(|bundle| bundle.id == attachment.content_id)
         {
-            Some(bundle) => bundle.account_media_ids.iter().map(String::as_str).collect(),
+            Some(bundle) => bundle
+                .account_media_ids
+                .iter()
+                .map(String::as_str)
+                .collect(),
             None => vec![attachment.content_id.as_str()],
         }
     });
@@ -1106,7 +1111,10 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(profile.bio.as_deref(), Some("Hi! #Travel #travel #fitness_life"));
+        assert_eq!(
+            profile.bio.as_deref(),
+            Some("Hi! #Travel #travel #fitness_life")
+        );
         assert_eq!(profile.location.as_deref(), Some("Portugal"));
         assert_eq!(profile.links, vec!["https://twitter.com/someuser"]);
         assert_eq!(profile.tags, vec!["Travel", "fitness_life"]);

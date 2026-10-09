@@ -7,8 +7,8 @@ use std::sync::{Arc, RwLock};
 
 use ipc::ExtensionLastSeen;
 use stasher_core::{
-    AppCore, ConfiguredStashClient, FanslyClient, LocalFsWriter, Nfs3Writer, NoopFfmpegProcessor,
-    RedgifsClient, SourceStatuses, SwitchableWriter,
+    AppCore, ConfiguredStashClient, FanslyClient, FaphouseClient, LocalFsWriter, Nfs3Writer,
+    NoopFfmpegProcessor, RedgifsClient, SourceStatuses, SwitchableWriter,
 };
 use stasher_protocol::{
     FileLayoutConfig, HostRequest, HostResponse, NfsExport, NfsShareConfig, SourceStatus,
@@ -86,7 +86,11 @@ async fn list_nfs_exports(server: String) -> Result<Vec<NfsExport>, String> {
 }
 
 #[tauri::command]
-async fn list_nfs_dirs(server: String, export_path: String, path: String) -> Result<Vec<String>, String> {
+async fn list_nfs_dirs(
+    server: String,
+    export_path: String,
+    path: String,
+) -> Result<Vec<String>, String> {
     let share = NfsShareConfig {
         server,
         export_path,
@@ -241,6 +245,7 @@ pub fn run() {
                 file_layout: file_layout.clone(),
                 fansly: Arc::new(FanslyClient::new().with_cache_file(fansly_cache)),
                 redgifs: Arc::new(RedgifsClient::new().with_cache_file(redgifs_cache)),
+                faphouse: Arc::new(FaphouseClient::new()),
                 source_statuses,
                 sources_config: sources_config.clone(),
                 muxer: Arc::new(ffmpeg_muxer::FfmpegSidecarMuxer::new(app.handle().clone())),

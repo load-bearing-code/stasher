@@ -5,7 +5,7 @@ import { CheckIcon, DownloadIcon, FilmIcon, ImageIcon, PlayIcon } from "lucide-r
 import { useState } from "react";
 import { RefreshButton } from "@/shared/components/RefreshButton";
 import { sendHostRequest } from "@/shared/host";
-import { getFanslyToken } from "../session";
+import { getFaphouseToken, getFanslyToken } from "../session";
 import { PerformerCard } from "./performer-card";
 
 function formatPostedAt(seconds: number): string {
@@ -51,7 +51,12 @@ export function PostStatusCard({
   async function importPost() {
     setImporting(true);
     try {
-      const authToken = site === "fansly" ? await getFanslyToken() : null;
+      const authToken =
+        site === "fansly"
+          ? await getFanslyToken()
+          : site === "faphouse"
+            ? await getFaphouseToken()
+            : null;
       const response = await sendHostRequest({
         type: "importPost",
         site,

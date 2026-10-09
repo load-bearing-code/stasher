@@ -4,6 +4,7 @@
 
 mod error;
 mod fansly;
+mod faphouse;
 mod ffmpeg;
 mod layout;
 mod nfs;
@@ -13,6 +14,7 @@ mod stash;
 
 pub use error::CoreError;
 pub use fansly::{FanslyClient, PostImage, PostVideo};
+pub use faphouse::FaphouseClient;
 pub use ffmpeg::{FfmpegProcessor, NoopFfmpegProcessor, UnavailableVideoMuxer, VideoMuxer};
 pub use layout::{render_path, MediaName};
 pub use nfs::{LocalFsWriter, NfsWriter};
@@ -51,6 +53,7 @@ pub struct AppCore {
     pub file_layout: Arc<RwLock<Option<FileLayoutConfig>>>,
     pub fansly: Arc<FanslyClient>,
     pub redgifs: Arc<RedgifsClient>,
+    pub faphouse: Arc<FaphouseClient>,
     pub source_statuses: SourceStatuses,
     pub sources_config: Arc<RwLock<Option<SourcesConfig>>>,
     /// Muxes a Fansly video's separate video/audio tracks into one file.
@@ -277,7 +280,11 @@ impl AppCore {
                 .download_track(&video.video_url, &video.cookie_header)
                 .await?;
             let audio_bytes = match &video.audio_url {
-                Some(url) => self.fansly.download_track(url, &video.cookie_header).await?,
+                Some(url) => {
+                    self.fansly
+                        .download_track(url, &video.cookie_header)
+                        .await?
+                }
                 None => Vec::new(),
             };
             let muxed = self.muxer.mux(&video_bytes, &audio_bytes).await?;
@@ -335,6 +342,93 @@ impl AppCore {
             template.as_deref(),
             info.details.title.as_deref(),
             date.as_deref(),
+            false,
+        );
+        self.nfs.write_file(&relative, &bytes).await?;
+        Ok((1, performer))
+    }
+
+    /// Downloads a FapHouse post's video, filing it under the Stash
+    /// performer its studio/model maps to. Like Fansly imports, this is
+    /// refused unless that performer already exists. FapHouse only renders
+    /// the signed download URL for an authenticated, subscribed session, so
+    /// `auth_token` (the caller's FapHouse session cookie, as a header
+    /// string) is required to fetch the post page, which only renders the
+    /// signed download URL for an authenticated, subscribed session. The URL
+    /// it yields is self-authenticating (signature + expiry in the path), so
+    /// the video file itself is fetched with the same plain HTTP client, no
+    /// cookies needed.
+    async fn import_faphouse_post(
+        &self,
+        post_id: &str,
+        auth_token: Option<&str>,
+    ) -> Result<(u32, Performer), CoreError> {
+        tracing::info!(
+            post_id,
+            has_auth_token = auth_token.is_some(),
+            "faphouse: import started"
+        );
+        let info = self
+            .faphouse
+            .fetch_post_import(post_id, auth_token)
+            .await
+            .inspect_err(
+                |err| tracing::warn!(post_id, %err, "faphouse: fetch_post_import failed"),
+            )?;
+        let url = info.download_url.ok_or_else(|| {
+            tracing::warn!(post_id, "faphouse: no download url in post page");
+            CoreError::Stash(
+                "couldn't find a downloadable video — make sure you're signed in to \
+                 FapHouse with an active subscription"
+                    .into(),
+            )
+        })?;
+        let creator = info.creator.ok_or_else(|| {
+            tracing::warn!(post_id, "faphouse: no studio/creator found on post page");
+            CoreError::Stash("couldn't tell which FapHouse studio this post belongs to".into())
+        })?;
+        tracing::info!(
+            post_id,
+            creator = creator.username,
+            "faphouse: resolved creator"
+        );
+        let performer = self
+            .stash
+            .find_exact_performer(&creator)
+            .await?
+            .ok_or_else(|| {
+                tracing::warn!(
+                    post_id,
+                    creator = creator.username,
+                    "faphouse: creator not in Stash"
+                );
+                CoreError::Stash(
+                    "this creator isn't in Stash yet — import them as a performer first, \
+                     then retry"
+                        .into(),
+                )
+            })?;
+        tracing::info!(
+            post_id,
+            performer = performer.name,
+            "faphouse: matched Stash performer"
+        );
+
+        let bytes = self.faphouse.download(&url).await.inspect_err(|err| {
+            tracing::warn!(post_id, %err, "faphouse: video download failed");
+        })?;
+        tracing::info!(post_id, bytes = bytes.len(), "faphouse: writing file");
+        let template = self.template();
+        let relative = self.file_path(
+            "faphouse",
+            post_id,
+            0,
+            &info.extension,
+            info.height,
+            &performer.name,
+            template.as_deref(),
+            info.details.title.as_deref(),
+            None,
             false,
         );
         self.nfs.write_file(&relative, &bytes).await?;
@@ -503,7 +597,7 @@ impl AppCore {
                 post_id,
                 post_url,
             } => {
-                if site != "fansly" && site != "redgifs" {
+                if site != "fansly" && site != "redgifs" && site != "faphouse" {
                     return HostResponse::Error {
                         message: format!("unsupported site: {site}"),
                     };
@@ -542,14 +636,17 @@ impl AppCore {
                             Ok(info) => (Some(info.details), info.creator),
                             Err(_) => (None, None),
                         },
+                        "faphouse" => match self.faphouse.fetch_post(&post_id).await {
+                            Ok(info) => (Some(info.details), info.creator),
+                            Err(_) => (None, None),
+                        },
                         _ => unreachable!("checked above"),
                     }
                 };
                 let creator_in_stash = match &creator {
-                    Some(profile) => matches!(
-                        self.stash.find_exact_performer(profile).await,
-                        Ok(Some(_))
-                    ),
+                    Some(profile) => {
+                        matches!(self.stash.find_exact_performer(profile).await, Ok(Some(_)))
+                    }
                     None => false,
                 };
                 HostResponse::PostLookup {
@@ -567,8 +664,15 @@ impl AppCore {
                 auth_token,
             } => {
                 let imported = match site.as_str() {
-                    "fansly" => self.import_fansly_post(&post_id, auth_token.as_deref()).await,
+                    "fansly" => {
+                        self.import_fansly_post(&post_id, auth_token.as_deref())
+                            .await
+                    }
                     "redgifs" => self.import_redgifs_video(&post_id).await,
+                    "faphouse" => {
+                        self.import_faphouse_post(&post_id, auth_token.as_deref())
+                            .await
+                    }
                     _ => {
                         return HostResponse::Error {
                             message: format!("unsupported site: {site}"),
@@ -633,6 +737,7 @@ mod tests {
             file_layout: Arc::new(RwLock::new(None)),
             fansly: Arc::new(FanslyClient::new()),
             redgifs: Arc::new(RedgifsClient::new()),
+            faphouse: Arc::new(FaphouseClient::new()),
             source_statuses: Arc::new(RwLock::new(HashMap::new())),
             sources_config: Arc::new(RwLock::new(None)),
             muxer: Arc::new(FakeMuxer),
@@ -1226,8 +1331,12 @@ mod tests {
             HostResponse::PostImported { files, .. } => assert_eq!(files, 1),
             other => panic!("expected PostImported, got {other:?}"),
         }
-        let saved =
-            std::fs::read(library.path().join("fansly/2026-09-28 – Golden hour [4K].jpg")).unwrap();
+        let saved = std::fs::read(
+            library
+                .path()
+                .join("fansly/2026-09-28 – Golden hour [4K].jpg"),
+        )
+        .unwrap();
         assert_eq!(saved, b"big-bytes");
     }
 
@@ -1477,6 +1586,7 @@ mod tests {
             file_layout: Arc::new(RwLock::new(None)),
             fansly: Arc::new(FanslyClient::with_base_url(fansly_server.uri())),
             redgifs: Arc::new(RedgifsClient::new()),
+            faphouse: Arc::new(FaphouseClient::new()),
             source_statuses: Arc::new(RwLock::new(HashMap::new())),
             sources_config: Arc::new(RwLock::new(None)),
             muxer: Arc::new(FakeMuxer),
@@ -1527,6 +1637,7 @@ mod tests {
 
         let core = AppCore {
             redgifs: Arc::new(RedgifsClient::with_base_url(redgifs_server.uri())),
+            faphouse: Arc::new(FaphouseClient::new()),
             ..test_core()
         };
 
@@ -1606,6 +1717,7 @@ mod tests {
         let core = core_with_stash(
             AppCore {
                 redgifs: Arc::new(RedgifsClient::with_base_url(server.uri())),
+                faphouse: Arc::new(FaphouseClient::new()),
                 ..test_core()
             },
             &server,
@@ -1679,6 +1791,7 @@ mod tests {
             AppCore {
                 nfs: Arc::new(LocalFsWriter::new(library.path())),
                 redgifs: Arc::new(RedgifsClient::with_base_url(server.uri())),
+                faphouse: Arc::new(FaphouseClient::new()),
                 ..test_core()
             },
             &server,
@@ -1739,6 +1852,7 @@ mod tests {
             AppCore {
                 nfs: Arc::new(LocalFsWriter::new(library.path())),
                 redgifs: Arc::new(RedgifsClient::with_base_url(server.uri())),
+                faphouse: Arc::new(FaphouseClient::new()),
                 ..test_core()
             },
             &server,
