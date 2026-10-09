@@ -28,3 +28,6 @@ apps/desktop/src-tauri/binaries/*
 
 .scratch/*
 !.scratch/.gitkeep
+
+# air hot-reload
+services/api/tmp/

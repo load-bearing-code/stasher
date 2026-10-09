@@ -1,0 +1,13 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+dev:
+    pnpm dev
+
+build:
+    pnpm build
+
+test:
+    echo "no tests configured for extension"
+
+lint:
+    pnpm typecheck

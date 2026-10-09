@@ -1,33 +1,30 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
+set positional-arguments
 
-all_apps := "extension desktop"
-
-# List available recipes
 default:
     @just --list
 
-# Build one or more apps (all apps if none given): just build extension
-build *APPS:
+dev *ARGS:
+    @just _dispatch dev {{ARGS}}
+
+build *ARGS:
+    @just _dispatch build {{ARGS}}
+
+test *ARGS:
+    @just _dispatch test {{ARGS}}
+
+lint *ARGS:
+    @just _dispatch lint {{ARGS}}
+
+_dispatch task *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
-    apps="{{ if APPS == "" { all_apps } else { APPS } }}"
-    args=()
-    for app in $apps; do
-        args+=(--filter "./apps/$app")
+    declare -A targets=([api]=services/api [extension]=apps/extension)
+    for name in "${@:2}"; do
+      dir="${targets[$name]:-}"
+      if [[ -z "$dir" ]]; then
+        echo "unknown target: $name" >&2
+        exit 1
+      fi
+      just --justfile "$dir/justfile" --working-directory "$dir" {{task}}
     done
-    pnpm exec turbo run build "${args[@]}"
-
-# Run one or more apps in dev mode (all apps if none given): just dev desktop
-dev *APPS:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    apps="{{ if APPS == "" { all_apps } else { APPS } }}"
-    args=()
-    for app in $apps; do
-        args+=(--filter "./apps/$app")
-    done
-    pnpm exec turbo run dev "${args[@]}"
-
-# Build everything and zip the Firefox extension
-release: build
-    pnpm --filter @stasher/extension zip:firefox
