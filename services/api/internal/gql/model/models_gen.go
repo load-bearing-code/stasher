@@ -41,6 +41,10 @@ type DeletePlatformAccountInput struct {
 	ID string `json:"id"`
 }
 
+type DeletePlatformInput struct {
+	ID string `json:"id"`
+}
+
 type DeleteTagInput struct {
 	ID string `json:"id"`
 }

@@ -101,6 +101,20 @@ func (r *Repository) Get(ctx context.Context, id, name *string) (*Platform, erro
 	return &row, nil
 }
 
+// Delete removes the platform matching id, and reports whether a row was
+// affected. It fails if any platform_accounts row still references it.
+func (r *Repository) Delete(ctx context.Context, id string) (bool, error) {
+	res, err := r.db.ExecContext(ctx, r.db.Rebind(`DELETE FROM platforms WHERE id = ?`), id)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
 // ListByIDs returns the platforms matching ids, in no particular order
 // and omitting any id with no matching row. It's the batch fetch a
 // dataloader collapses many per-row Platform lookups into.

@@ -52,6 +52,7 @@ type ComplexityRoot struct {
 		CreateStudio          func(childComplexity int, input model.CreateStudioInput) int
 		CreateTag             func(childComplexity int, input model.CreateTagInput) int
 		DeletePerformer       func(childComplexity int, input model.DeletePerformerInput) int
+		DeletePlatform        func(childComplexity int, input model.DeletePlatformInput) int
 		DeletePlatformAccount func(childComplexity int, input model.DeletePlatformAccountInput) int
 		DeleteTag             func(childComplexity int, input model.DeleteTagInput) int
 		UpdatePerformer       func(childComplexity int, input model.UpdatePerformerInput) int
@@ -200,6 +201,7 @@ type ComplexityRoot struct {
 type MutationResolver interface {
 	CreatePlatform(ctx context.Context, input model.CreatePlatformInput) (*platforms.Platform, error)
 	UpdatePlatform(ctx context.Context, input model.UpdatePlatformInput) (*platforms.Platform, error)
+	DeletePlatform(ctx context.Context, input model.DeletePlatformInput) (bool, error)
 	CreatePerformer(ctx context.Context, input model.CreatePerformerInput) (*performers.Performer, error)
 	UpdatePerformer(ctx context.Context, input model.UpdatePerformerInput) (*performers.Performer, error)
 	DeletePerformer(ctx context.Context, input model.DeletePerformerInput) (bool, error)
@@ -323,6 +325,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.DeletePerformer(childComplexity, args["input"].(model.DeletePerformerInput)), true
+	case "Mutation.deletePlatform":
+		if e.ComplexityRoot.Mutation.DeletePlatform == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deletePlatform_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.DeletePlatform(childComplexity, args["input"].(model.DeletePlatformInput)), true
 	case "Mutation.deletePlatformAccount":
 		if e.ComplexityRoot.Mutation.DeletePlatformAccount == nil {
 			break
@@ -912,6 +925,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputCreateTagInput,
 		ec.unmarshalInputDeletePerformerInput,
 		ec.unmarshalInputDeletePlatformAccountInput,
+		ec.unmarshalInputDeletePlatformInput,
 		ec.unmarshalInputDeleteTagInput,
 		ec.unmarshalInputUpdatePerformerInput,
 		ec.unmarshalInputUpdatePlatformAccountInput,
@@ -1088,9 +1102,14 @@ input UpdatePlatformInput {
   name: String!
 }
 
+input DeletePlatformInput {
+  id: ID!
+}
+
 type Mutation {
   createPlatform(input: CreatePlatformInput!): Platform!
   updatePlatform(input: UpdatePlatformInput!): Platform!
+  deletePlatform(input: DeletePlatformInput!): Boolean!
 }
 `, BuiltIn: false},
 	{Name: "../../schema/platform_account.graphql", Input: `type PlatformAccount {
@@ -1709,6 +1728,20 @@ func (ec *executionContext) field_Mutation_deletePlatformAccount_args(ctx contex
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_deletePlatform_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.DeletePlatformInput, error) {
+			return ec.unmarshalNDeletePlatformInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐDeletePlatformInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_deleteTag_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -2201,6 +2234,50 @@ func (ec *executionContext) fieldContext_Mutation_updatePlatform(ctx context.Con
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_updatePlatform_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deletePlatform(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_deletePlatform(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().DeletePlatform(ctx, fc.Args["input"].(model.DeletePlatformInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_deletePlatform(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deletePlatform_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -6163,6 +6240,36 @@ func (ec *executionContext) unmarshalInputDeletePlatformAccountInput(ctx context
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputDeletePlatformInput(ctx context.Context, obj any) (model.DeletePlatformInput, error) {
+	var it model.DeletePlatformInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputDeleteTagInput(ctx context.Context, obj any) (model.DeleteTagInput, error) {
 	var it model.DeleteTagInput
 	if obj == nil {
@@ -6479,6 +6586,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "updatePlatform":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_updatePlatform(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deletePlatform":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deletePlatform(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -8592,6 +8706,11 @@ func (ec *executionContext) unmarshalNDeletePerformerInput2githubᚗcomᚋload�
 
 func (ec *executionContext) unmarshalNDeletePlatformAccountInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐDeletePlatformAccountInput(ctx context.Context, v any) (model.DeletePlatformAccountInput, error) {
 	res, err := ec.unmarshalInputDeletePlatformAccountInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNDeletePlatformInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐDeletePlatformInput(ctx context.Context, v any) (model.DeletePlatformInput, error) {
+	res, err := ec.unmarshalInputDeletePlatformInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 

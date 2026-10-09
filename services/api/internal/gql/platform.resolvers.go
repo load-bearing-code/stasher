@@ -24,6 +24,11 @@ func (r *mutationResolver) UpdatePlatform(ctx context.Context, input model.Updat
 	return r.Services.Platforms.Update(ctx, string(input.ID), input.Name)
 }
 
+// DeletePlatform is the resolver for the deletePlatform field.
+func (r *mutationResolver) DeletePlatform(ctx context.Context, input model.DeletePlatformInput) (bool, error) {
+	return r.Services.Platforms.Delete(ctx, string(input.ID))
+}
+
 // Platforms is the resolver for the platforms field.
 func (r *queryResolver) Platforms(ctx context.Context, first *int, after *string) (*page.Connection[*platforms.Platform], error) {
 	args, err := page.ParseArgs(first, after)

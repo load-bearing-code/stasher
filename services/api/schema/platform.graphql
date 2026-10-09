@@ -29,7 +29,12 @@ input UpdatePlatformInput {
   name: String!
 }
 
+input DeletePlatformInput {
+  id: ID!
+}
+
 type Mutation {
   createPlatform(input: CreatePlatformInput!): Platform!
   updatePlatform(input: UpdatePlatformInput!): Platform!
+  deletePlatform(input: DeletePlatformInput!): Boolean!
 }

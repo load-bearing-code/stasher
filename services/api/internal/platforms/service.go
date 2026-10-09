@@ -47,6 +47,12 @@ func (s *Service) Update(ctx context.Context, id, name string) (*Platform, error
 	return s.repo.Update(ctx, id, name)
 }
 
+// Delete removes the platform matching id, and reports whether a row was
+// affected.
+func (s *Service) Delete(ctx context.Context, id string) (bool, error) {
+	return s.repo.Delete(ctx, id)
+}
+
 // Get returns the platform matching id if given, else name. It returns nil,
 // nil if no row matches.
 func (s *Service) Get(ctx context.Context, id, name *string) (*Platform, error) {

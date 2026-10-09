@@ -15,6 +15,7 @@ import { Route as SettingsRouteRouteImport } from './routes/settings/route'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsLibraryRouteImport } from './routes/settings/library'
 import { Route as SettingsMaintenanceRouteImport } from './routes/settings/maintenance'
+import { Route as SettingsPlatformsRouteImport } from './routes/settings/platforms'
 import { Route as SettingsTagsRouteImport } from './routes/settings/tags'
 
 const IndexRoute = IndexRouteImport.update({
@@ -47,6 +48,11 @@ const SettingsMaintenanceRoute = SettingsMaintenanceRouteImport.update({
   path: '/maintenance',
   getParentRoute: () => SettingsRouteRoute,
 } as any)
+const SettingsPlatformsRoute = SettingsPlatformsRouteImport.update({
+  id: '/platforms',
+  path: '/platforms',
+  getParentRoute: () => SettingsRouteRoute,
+} as any)
 const SettingsTagsRoute = SettingsTagsRouteImport.update({
   id: '/tags',
   path: '/tags',
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/feed': typeof FeedRoute
   '/settings/library': typeof SettingsLibraryRoute
   '/settings/maintenance': typeof SettingsMaintenanceRoute
+  '/settings/platforms': typeof SettingsPlatformsRoute
   '/settings/tags': typeof SettingsTagsRoute
   '/settings/': typeof SettingsIndexRoute
 }
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/feed': typeof FeedRoute
   '/settings/library': typeof SettingsLibraryRoute
   '/settings/maintenance': typeof SettingsMaintenanceRoute
+  '/settings/platforms': typeof SettingsPlatformsRoute
   '/settings/tags': typeof SettingsTagsRoute
   '/settings': typeof SettingsIndexRoute
 }
@@ -77,6 +85,7 @@ export interface FileRoutesById {
   '/feed': typeof FeedRoute
   '/settings/library': typeof SettingsLibraryRoute
   '/settings/maintenance': typeof SettingsMaintenanceRoute
+  '/settings/platforms': typeof SettingsPlatformsRoute
   '/settings/tags': typeof SettingsTagsRoute
   '/settings/': typeof SettingsIndexRoute
 }
@@ -88,6 +97,7 @@ export interface FileRouteTypes {
     | '/feed'
     | '/settings/library'
     | '/settings/maintenance'
+    | '/settings/platforms'
     | '/settings/tags'
     | '/settings/'
   fileRoutesByTo: FileRoutesByTo
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | '/feed'
     | '/settings/library'
     | '/settings/maintenance'
+    | '/settings/platforms'
     | '/settings/tags'
     | '/settings'
   id:
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | '/feed'
     | '/settings/library'
     | '/settings/maintenance'
+    | '/settings/platforms'
     | '/settings/tags'
     | '/settings/'
   fileRoutesById: FileRoutesById
@@ -159,6 +171,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsMaintenanceRouteImport
       parentRoute: typeof SettingsRouteRoute
     }
+    '/settings/platforms': {
+      id: '/settings/platforms'
+      path: '/platforms'
+      fullPath: '/settings/platforms'
+      preLoaderRoute: typeof SettingsPlatformsRouteImport
+      parentRoute: typeof SettingsRouteRoute
+    }
     '/settings/tags': {
       id: '/settings/tags'
       path: '/tags'
@@ -172,6 +191,7 @@ declare module '@tanstack/react-router' {
 interface SettingsRouteRouteChildren {
   SettingsLibraryRoute: typeof SettingsLibraryRoute
   SettingsMaintenanceRoute: typeof SettingsMaintenanceRoute
+  SettingsPlatformsRoute: typeof SettingsPlatformsRoute
   SettingsTagsRoute: typeof SettingsTagsRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
@@ -179,6 +199,7 @@ interface SettingsRouteRouteChildren {
 const SettingsRouteRouteChildren: SettingsRouteRouteChildren = {
   SettingsLibraryRoute: SettingsLibraryRoute,
   SettingsMaintenanceRoute: SettingsMaintenanceRoute,
+  SettingsPlatformsRoute: SettingsPlatformsRoute,
   SettingsTagsRoute: SettingsTagsRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }
