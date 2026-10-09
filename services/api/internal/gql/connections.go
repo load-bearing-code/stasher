@@ -12,6 +12,7 @@ import (
 	"github.com/load-bearing-code/stasher/api/internal/platformaccounts"
 	"github.com/load-bearing-code/stasher/api/internal/platforms"
 	"github.com/load-bearing-code/stasher/api/internal/studios"
+	"github.com/load-bearing-code/stasher/api/internal/tags"
 )
 
 type (
@@ -26,4 +27,7 @@ type (
 
 	PlatformAccountConnection = page.Connection[*platformaccounts.PlatformAccount]
 	PlatformAccountEdge       = page.Edge[*platformaccounts.PlatformAccount]
+
+	TagConnection = page.Connection[*tags.Tag]
+	TagEdge       = page.Edge[*tags.Tag]
 )

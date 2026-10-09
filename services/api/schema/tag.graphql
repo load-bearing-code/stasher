@@ -1,0 +1,45 @@
+type Tag {
+  id: ID!
+  name: String!
+  description: String
+  performers: [Performer!]!
+}
+
+type TagEdge {
+  node: Tag!
+  cursor: String!
+}
+
+type TagConnection {
+  edges: [TagEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+extend type Query {
+  tags(first: Int, after: String, performerId: ID): TagConnection!
+  tag(id: ID, name: String): Tag
+}
+
+input CreateTagInput {
+  name: String!
+  description: String
+  performerIds: [ID!]
+}
+
+input UpdateTagInput {
+  id: ID!
+  name: String!
+  description: String
+  performerIds: [ID!]
+}
+
+input DeleteTagInput {
+  id: ID!
+}
+
+extend type Mutation {
+  createTag(input: CreateTagInput!): Tag!
+  updateTag(input: UpdateTagInput!): Tag!
+  deleteTag(input: DeleteTagInput!): Boolean!
+}

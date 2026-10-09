@@ -8,6 +8,7 @@ import (
 	"github.com/load-bearing-code/stasher/api/internal/platformaccounts"
 	"github.com/load-bearing-code/stasher/api/internal/platforms"
 	"github.com/load-bearing-code/stasher/api/internal/studios"
+	"github.com/load-bearing-code/stasher/api/internal/tags"
 )
 
 // Services aggregates the services the GraphQL resolver depends on.
@@ -16,4 +17,5 @@ type Services struct {
 	Studios          *studios.Service
 	Performers       *performers.Service
 	PlatformAccounts *platformaccounts.Service
+	Tags             *tags.Service
 }

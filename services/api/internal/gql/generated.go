@@ -19,6 +19,7 @@ import (
 	"github.com/load-bearing-code/stasher/api/internal/platformaccounts"
 	"github.com/load-bearing-code/stasher/api/internal/platforms"
 	"github.com/load-bearing-code/stasher/api/internal/studios"
+	"github.com/load-bearing-code/stasher/api/internal/tags"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -34,8 +35,10 @@ type Config = graphql.Config[ResolverRoot, DirectiveRoot, ComplexityRoot]
 
 type ResolverRoot interface {
 	Mutation() MutationResolver
+	Performer() PerformerResolver
 	PlatformAccount() PlatformAccountResolver
 	Query() QueryResolver
+	Tag() TagResolver
 }
 
 type DirectiveRoot struct {
@@ -47,12 +50,15 @@ type ComplexityRoot struct {
 		CreatePlatform        func(childComplexity int, input model.CreatePlatformInput) int
 		CreatePlatformAccount func(childComplexity int, input model.CreatePlatformAccountInput) int
 		CreateStudio          func(childComplexity int, input model.CreateStudioInput) int
+		CreateTag             func(childComplexity int, input model.CreateTagInput) int
 		DeletePerformer       func(childComplexity int, input model.DeletePerformerInput) int
 		DeletePlatformAccount func(childComplexity int, input model.DeletePlatformAccountInput) int
+		DeleteTag             func(childComplexity int, input model.DeleteTagInput) int
 		UpdatePerformer       func(childComplexity int, input model.UpdatePerformerInput) int
 		UpdatePlatform        func(childComplexity int, input model.UpdatePlatformInput) int
 		UpdatePlatformAccount func(childComplexity int, input model.UpdatePlatformAccountInput) int
 		UpdateStudio          func(childComplexity int, input model.UpdateStudioInput) int
+		UpdateTag             func(childComplexity int, input model.UpdateTagInput) int
 	}
 
 	PageInfo struct {
@@ -68,6 +74,7 @@ type ComplexityRoot struct {
 		Disambiguation func(childComplexity int) int
 		ID             func(childComplexity int) int
 		Name           func(childComplexity int) int
+		Tags           func(childComplexity int) int
 		UpdatedAt      func(childComplexity int) int
 	}
 
@@ -130,6 +137,8 @@ type ComplexityRoot struct {
 		Platforms        func(childComplexity int, first *int, after *string) int
 		Studio           func(childComplexity int, id *string, name *string) int
 		Studios          func(childComplexity int, first *int, after *string) int
+		Tag              func(childComplexity int, id *string, name *string) int
+		Tags             func(childComplexity int, first *int, after *string, performerID *string) int
 		Version          func(childComplexity int) int
 	}
 
@@ -145,6 +154,24 @@ type ComplexityRoot struct {
 	}
 
 	StudioEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
+	}
+
+	Tag struct {
+		Description func(childComplexity int) int
+		ID          func(childComplexity int) int
+		Name        func(childComplexity int) int
+		Performers  func(childComplexity int) int
+	}
+
+	TagConnection struct {
+		Edges      func(childComplexity int) int
+		PageInfo   func(childComplexity int) int
+		TotalCount func(childComplexity int) int
+	}
+
+	TagEdge struct {
 		Cursor func(childComplexity int) int
 		Node   func(childComplexity int) int
 	}
@@ -169,6 +196,12 @@ type MutationResolver interface {
 	DeletePlatformAccount(ctx context.Context, input model.DeletePlatformAccountInput) (bool, error)
 	CreateStudio(ctx context.Context, input model.CreateStudioInput) (*studios.Studio, error)
 	UpdateStudio(ctx context.Context, input model.UpdateStudioInput) (*studios.Studio, error)
+	CreateTag(ctx context.Context, input model.CreateTagInput) (*tags.Tag, error)
+	UpdateTag(ctx context.Context, input model.UpdateTagInput) (*tags.Tag, error)
+	DeleteTag(ctx context.Context, input model.DeleteTagInput) (bool, error)
+}
+type PerformerResolver interface {
+	Tags(ctx context.Context, obj *performers.Performer) ([]*tags.Tag, error)
 }
 type PlatformAccountResolver interface {
 	Platform(ctx context.Context, obj *platformaccounts.PlatformAccount) (*platforms.Platform, error)
@@ -186,6 +219,11 @@ type QueryResolver interface {
 	PlatformAccount(ctx context.Context, id *string, platformID *string, handle *string) (*platformaccounts.PlatformAccount, error)
 	Studios(ctx context.Context, first *int, after *string) (*page.Connection[*studios.Studio], error)
 	Studio(ctx context.Context, id *string, name *string) (*studios.Studio, error)
+	Tags(ctx context.Context, first *int, after *string, performerID *string) (*page.Connection[*tags.Tag], error)
+	Tag(ctx context.Context, id *string, name *string) (*tags.Tag, error)
+}
+type TagResolver interface {
+	Performers(ctx context.Context, obj *tags.Tag) ([]*performers.Performer, error)
 }
 
 // endregion ************************** generated!.gotpl **************************
@@ -250,6 +288,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.CreateStudio(childComplexity, args["input"].(model.CreateStudioInput)), true
+	case "Mutation.createTag":
+		if e.ComplexityRoot.Mutation.CreateTag == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createTag_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.CreateTag(childComplexity, args["input"].(model.CreateTagInput)), true
 	case "Mutation.deletePerformer":
 		if e.ComplexityRoot.Mutation.DeletePerformer == nil {
 			break
@@ -272,6 +321,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.DeletePlatformAccount(childComplexity, args["input"].(model.DeletePlatformAccountInput)), true
+	case "Mutation.deleteTag":
+		if e.ComplexityRoot.Mutation.DeleteTag == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteTag_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.DeleteTag(childComplexity, args["input"].(model.DeleteTagInput)), true
 	case "Mutation.updatePerformer":
 		if e.ComplexityRoot.Mutation.UpdatePerformer == nil {
 			break
@@ -316,6 +376,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.UpdateStudio(childComplexity, args["input"].(model.UpdateStudioInput)), true
+	case "Mutation.updateTag":
+		if e.ComplexityRoot.Mutation.UpdateTag == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateTag_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.UpdateTag(childComplexity, args["input"].(model.UpdateTagInput)), true
 
 	case "PageInfo.endCursor":
 		if e.ComplexityRoot.PageInfo.EndCursor == nil {
@@ -372,6 +443,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Performer.Name(childComplexity), true
+	case "Performer.tags":
+		if e.ComplexityRoot.Performer.Tags == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Performer.Tags(childComplexity), true
 	case "Performer.updatedAt":
 		if e.ComplexityRoot.Performer.UpdatedAt == nil {
 			break
@@ -631,6 +708,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Studios(childComplexity, args["first"].(*int), args["after"].(*string)), true
+	case "Query.tag":
+		if e.ComplexityRoot.Query.Tag == nil {
+			break
+		}
+
+		args, err := ec.field_Query_tag_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.Tag(childComplexity, args["id"].(*string), args["name"].(*string)), true
+	case "Query.tags":
+		if e.ComplexityRoot.Query.Tags == nil {
+			break
+		}
+
+		args, err := ec.field_Query_tags_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.Tags(childComplexity, args["first"].(*int), args["after"].(*string), args["performerId"].(*string)), true
 	case "Query.version":
 		if e.ComplexityRoot.Query.Version == nil {
 			break
@@ -683,6 +782,63 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.StudioEdge.Node(childComplexity), true
 
+	case "Tag.description":
+		if e.ComplexityRoot.Tag.Description == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Tag.Description(childComplexity), true
+	case "Tag.id":
+		if e.ComplexityRoot.Tag.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Tag.ID(childComplexity), true
+	case "Tag.name":
+		if e.ComplexityRoot.Tag.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Tag.Name(childComplexity), true
+	case "Tag.performers":
+		if e.ComplexityRoot.Tag.Performers == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Tag.Performers(childComplexity), true
+
+	case "TagConnection.edges":
+		if e.ComplexityRoot.TagConnection.Edges == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TagConnection.Edges(childComplexity), true
+	case "TagConnection.pageInfo":
+		if e.ComplexityRoot.TagConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TagConnection.PageInfo(childComplexity), true
+	case "TagConnection.totalCount":
+		if e.ComplexityRoot.TagConnection.TotalCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TagConnection.TotalCount(childComplexity), true
+
+	case "TagEdge.cursor":
+		if e.ComplexityRoot.TagEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TagEdge.Cursor(childComplexity), true
+	case "TagEdge.node":
+		if e.ComplexityRoot.TagEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TagEdge.Node(childComplexity), true
+
 	case "Version.version":
 		if e.ComplexityRoot.Version.Version == nil {
 			break
@@ -702,12 +858,15 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputCreatePlatformAccountInput,
 		ec.unmarshalInputCreatePlatformInput,
 		ec.unmarshalInputCreateStudioInput,
+		ec.unmarshalInputCreateTagInput,
 		ec.unmarshalInputDeletePerformerInput,
 		ec.unmarshalInputDeletePlatformAccountInput,
+		ec.unmarshalInputDeleteTagInput,
 		ec.unmarshalInputUpdatePerformerInput,
 		ec.unmarshalInputUpdatePlatformAccountInput,
 		ec.unmarshalInputUpdatePlatformInput,
 		ec.unmarshalInputUpdateStudioInput,
+		ec.unmarshalInputUpdateTagInput,
 	)
 	first := true
 
@@ -788,6 +947,7 @@ var sources = []*ast.Source{
   name: String!
   disambiguation: String
   aliases: [String!]!
+  tags: [Tag!]!
   createdAt: String!
   updatedAt: String
 }
@@ -984,6 +1144,52 @@ extend type Mutation {
   updateStudio(input: UpdateStudioInput!): Studio!
 }
 `, BuiltIn: false},
+	{Name: "../../schema/tag.graphql", Input: `type Tag {
+  id: ID!
+  name: String!
+  description: String
+  performers: [Performer!]!
+}
+
+type TagEdge {
+  node: Tag!
+  cursor: String!
+}
+
+type TagConnection {
+  edges: [TagEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+extend type Query {
+  tags(first: Int, after: String, performerId: ID): TagConnection!
+  tag(id: ID, name: String): Tag
+}
+
+input CreateTagInput {
+  name: String!
+  description: String
+  performerIds: [ID!]
+}
+
+input UpdateTagInput {
+  id: ID!
+  name: String!
+  description: String
+  performerIds: [ID!]
+}
+
+input DeleteTagInput {
+  id: ID!
+}
+
+extend type Mutation {
+  createTag(input: CreateTagInput!): Tag!
+  updateTag(input: UpdateTagInput!): Tag!
+  deleteTag(input: DeleteTagInput!): Boolean!
+}
+`, BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
@@ -1015,6 +1221,8 @@ func (ec *executionContext) childFields_Performer(ctx context.Context, field gra
 		return ec.fieldContext_Performer_disambiguation(ctx, field)
 	case "aliases":
 		return ec.fieldContext_Performer_aliases(ctx, field)
+	case "tags":
+		return ec.fieldContext_Performer_tags(ctx, field)
 	case "createdAt":
 		return ec.fieldContext_Performer_createdAt(ctx, field)
 	case "updatedAt":
@@ -1153,6 +1361,42 @@ func (ec *executionContext) childFields_StudioEdge(ctx context.Context, field gr
 		return ec.fieldContext_StudioEdge_cursor(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type StudioEdge", field.Name)
+}
+
+func (ec *executionContext) childFields_Tag(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Tag_id(ctx, field)
+	case "name":
+		return ec.fieldContext_Tag_name(ctx, field)
+	case "description":
+		return ec.fieldContext_Tag_description(ctx, field)
+	case "performers":
+		return ec.fieldContext_Tag_performers(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Tag", field.Name)
+}
+
+func (ec *executionContext) childFields_TagConnection(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "edges":
+		return ec.fieldContext_TagConnection_edges(ctx, field)
+	case "pageInfo":
+		return ec.fieldContext_TagConnection_pageInfo(ctx, field)
+	case "totalCount":
+		return ec.fieldContext_TagConnection_totalCount(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type TagConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_TagEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "node":
+		return ec.fieldContext_TagEdge_node(ctx, field)
+	case "cursor":
+		return ec.fieldContext_TagEdge_cursor(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type TagEdge", field.Name)
 }
 
 func (ec *executionContext) childFields_Version(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -1335,6 +1579,20 @@ func (ec *executionContext) field_Mutation_createStudio_args(ctx context.Context
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_createTag_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.CreateTagInput, error) {
+			return ec.unmarshalNCreateTagInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐCreateTagInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_deletePerformer_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1355,6 +1613,20 @@ func (ec *executionContext) field_Mutation_deletePlatformAccount_args(ctx contex
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (model.DeletePlatformAccountInput, error) {
 			return ec.unmarshalNDeletePlatformAccountInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐDeletePlatformAccountInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteTag_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.DeleteTagInput, error) {
+			return ec.unmarshalNDeleteTagInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐDeleteTagInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -1411,6 +1683,20 @@ func (ec *executionContext) field_Mutation_updateStudio_args(ctx context.Context
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (model.UpdateStudioInput, error) {
 			return ec.unmarshalNUpdateStudioInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐUpdateStudioInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateTag_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.UpdateTagInput, error) {
+			return ec.unmarshalNUpdateTagInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐUpdateTagInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -1630,6 +1916,58 @@ func (ec *executionContext) field_Query_studios_args(ctx context.Context, rawArg
 		return nil, err
 	}
 	args["after"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_tag_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOID2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "name",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["name"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_tags_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "performerId",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOID2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["performerId"] = arg2
 	return args, nil
 }
 
@@ -2133,6 +2471,138 @@ func (ec *executionContext) fieldContext_Mutation_updateStudio(ctx context.Conte
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_createTag(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_createTag(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().CreateTag(ctx, fc.Args["input"].(model.CreateTagInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *tags.Tag) graphql.Marshaler {
+			return ec.marshalNTag2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋtagsᚐTag(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_createTag(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Tag(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createTag_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateTag(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_updateTag(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().UpdateTag(ctx, fc.Args["input"].(model.UpdateTagInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *tags.Tag) graphql.Marshaler {
+			return ec.marshalNTag2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋtagsᚐTag(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_updateTag(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Tag(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateTag_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteTag(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_deleteTag(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().DeleteTag(ctx, fc.Args["input"].(model.DeleteTagInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_deleteTag(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteTag_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _PageInfo_hasNextPage(ctx context.Context, field graphql.CollectedField, obj *page.PageInfo) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2315,6 +2785,38 @@ func (ec *executionContext) _Performer_aliases(ctx context.Context, field graphq
 }
 func (ec *executionContext) fieldContext_Performer_aliases(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Performer", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Performer_tags(ctx context.Context, field graphql.CollectedField, obj *performers.Performer) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Performer_tags(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Performer().Tags(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*tags.Tag) graphql.Marshaler {
+			return ec.marshalNTag2ᚕᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋtagsᚐTagᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Performer_tags(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Performer",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Tag(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Performer_createdAt(ctx context.Context, field graphql.CollectedField, obj *performers.Performer) (ret graphql.Marshaler) {
@@ -3453,6 +3955,94 @@ func (ec *executionContext) fieldContext_Query_studio(ctx context.Context, field
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_tags(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_tags(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().Tags(ctx, fc.Args["first"].(*int), fc.Args["after"].(*string), fc.Args["performerId"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *page.Connection[*tags.Tag]) graphql.Marshaler {
+			return ec.marshalNTagConnection2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_tags(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TagConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_tags_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_tag(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_tag(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().Tag(ctx, fc.Args["id"].(*string), fc.Args["name"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *tags.Tag) graphql.Marshaler {
+			return ec.marshalOTag2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋtagsᚐTag(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Query_tag(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Tag(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_tag_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3715,6 +4305,249 @@ func (ec *executionContext) _StudioEdge_cursor(ctx context.Context, field graphq
 }
 func (ec *executionContext) fieldContext_StudioEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("StudioEdge", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Tag_id(ctx context.Context, field graphql.CollectedField, obj *tags.Tag) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Tag_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID(), nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Tag_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Tag", field, true, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _Tag_name(ctx context.Context, field graphql.CollectedField, obj *tags.Tag) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Tag_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Tag_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Tag", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Tag_description(ctx context.Context, field graphql.CollectedField, obj *tags.Tag) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Tag_description(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Tag_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Tag", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Tag_performers(ctx context.Context, field graphql.CollectedField, obj *tags.Tag) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Tag_performers(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Tag().Performers(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*performers.Performer) graphql.Marshaler {
+			return ec.marshalNPerformer2ᚕᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋperformersᚐPerformerᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Tag_performers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Tag",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Performer(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TagConnection_edges(ctx context.Context, field graphql.CollectedField, obj *page.Connection[*tags.Tag]) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TagConnection_edges(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*page.Edge[*tags.Tag]) graphql.Marshaler {
+			return ec.marshalNTagEdge2ᚕᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐEdgeᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TagConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TagConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TagEdge(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TagConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *page.Connection[*tags.Tag]) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TagConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *page.PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TagConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TagConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TagConnection_totalCount(ctx context.Context, field graphql.CollectedField, obj *page.Connection[*tags.Tag]) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TagConnection_totalCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TotalCount(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TagConnection_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TagConnection", field, true, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _TagEdge_node(ctx context.Context, field graphql.CollectedField, obj *page.Edge[*tags.Tag]) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TagEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *tags.Tag) graphql.Marshaler {
+			return ec.marshalNTag2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋtagsᚐTag(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TagEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TagEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Tag(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TagEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *page.Edge[*tags.Tag]) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TagEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TagEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TagEdge", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _Version_version(ctx context.Context, field graphql.CollectedField, obj *model.Version) (ret graphql.Marshaler) {
@@ -4982,6 +5815,50 @@ func (ec *executionContext) unmarshalInputCreateStudioInput(ctx context.Context,
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputCreateTagInput(ctx context.Context, obj any) (model.CreateTagInput, error) {
+	var it model.CreateTagInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name", "description", "performerIds"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "description":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Description = data
+		case "performerIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("performerIds"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PerformerIds = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputDeletePerformerInput(ctx context.Context, obj any) (model.DeletePerformerInput, error) {
 	var it model.DeletePerformerInput
 	if obj == nil {
@@ -5014,6 +5891,36 @@ func (ec *executionContext) unmarshalInputDeletePerformerInput(ctx context.Conte
 
 func (ec *executionContext) unmarshalInputDeletePlatformAccountInput(ctx context.Context, obj any) (model.DeletePlatformAccountInput, error) {
 	var it model.DeletePlatformAccountInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputDeleteTagInput(ctx context.Context, obj any) (model.DeleteTagInput, error) {
+	var it model.DeleteTagInput
 	if obj == nil {
 		return it, nil
 	}
@@ -5239,6 +6146,57 @@ func (ec *executionContext) unmarshalInputUpdateStudioInput(ctx context.Context,
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputUpdateTagInput(ctx context.Context, obj any) (model.UpdateTagInput, error) {
+	var it model.UpdateTagInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "name", "description", "performerIds"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "description":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Description = data
+		case "performerIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("performerIds"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PerformerIds = data
+		}
+	}
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -5337,6 +6295,27 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "createTag":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createTag(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updateTag":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateTag(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deleteTag":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteTag(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -5426,32 +6405,70 @@ func (ec *executionContext) _Performer(ctx context.Context, sel ast.SelectionSet
 		case "id":
 			out.Values[i] = ec._Performer_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "name":
 			out.Values[i] = ec._Performer_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "disambiguation":
 			out.Values[i] = ec._Performer_disambiguation(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "aliases":
 			out.Values[i] = ec._Performer_aliases(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "tags":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Performer_tags(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "createdAt":
 			out.Values[i] = ec._Performer_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "updatedAt":
 			out.Values[i] = ec._Performer_updatedAt(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -6284,6 +7301,50 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "tags":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_tags(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "tag":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_tag(ctx, field)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -6462,6 +7523,216 @@ func (ec *executionContext) _StudioEdge(ctx context.Context, sel ast.SelectionSe
 			}
 		case "cursor":
 			out.Values[i] = ec._StudioEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var tagImplementors = []string{"Tag"}
+
+func (ec *executionContext) _Tag(ctx context.Context, sel ast.SelectionSet, obj *tags.Tag) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, tagImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Tag")
+		case "id":
+			out.Values[i] = ec._Tag_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "name":
+			out.Values[i] = ec._Tag_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "description":
+			out.Values[i] = ec._Tag_description(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "performers":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Tag_performers(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var tagConnectionImplementors = []string{"TagConnection"}
+
+func (ec *executionContext) _TagConnection(ctx context.Context, sel ast.SelectionSet, obj *page.Connection[*tags.Tag]) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, tagConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TagConnection")
+		case "edges":
+			out.Values[i] = ec._TagConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "pageInfo":
+			out.Values[i] = ec._TagConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "totalCount":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._TagConnection_totalCount(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var tagEdgeImplementors = []string{"TagEdge"}
+
+func (ec *executionContext) _TagEdge(ctx context.Context, sel ast.SelectionSet, obj *page.Edge[*tags.Tag]) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, tagEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TagEdge")
+		case "node":
+			out.Values[i] = ec._TagEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cursor":
+			out.Values[i] = ec._TagEdge_cursor(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -6952,6 +8223,11 @@ func (ec *executionContext) unmarshalNCreateStudioInput2githubᚗcomᚋloadᚑbe
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalNCreateTagInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐCreateTagInput(ctx context.Context, v any) (model.CreateTagInput, error) {
+	res, err := ec.unmarshalInputCreateTagInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNDeletePerformerInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐDeletePerformerInput(ctx context.Context, v any) (model.DeletePerformerInput, error) {
 	res, err := ec.unmarshalInputDeletePerformerInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -6959,6 +8235,11 @@ func (ec *executionContext) unmarshalNDeletePerformerInput2githubᚗcomᚋload�
 
 func (ec *executionContext) unmarshalNDeletePlatformAccountInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐDeletePlatformAccountInput(ctx context.Context, v any) (model.DeletePlatformAccountInput, error) {
 	res, err := ec.unmarshalInputDeletePlatformAccountInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNDeleteTagInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐDeleteTagInput(ctx context.Context, v any) (model.DeleteTagInput, error) {
+	res, err := ec.unmarshalInputDeleteTagInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -7249,6 +8530,68 @@ func (ec *executionContext) marshalNStudioEdge2ᚖgithubᚗcomᚋloadᚑbearing�
 	return ec._StudioEdge(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNTag2ᚕᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋtagsᚐTagᚄ(ctx context.Context, sel ast.SelectionSet, v []*tags.Tag) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNTag2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋtagsᚐTag(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNTag2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋtagsᚐTag(ctx context.Context, sel ast.SelectionSet, v *tags.Tag) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Tag(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNTagConnection2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐConnection(ctx context.Context, sel ast.SelectionSet, v *page.Connection[*tags.Tag]) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._TagConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNTagEdge2ᚕᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*page.Edge[*tags.Tag]) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNTagEdge2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐEdge(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNTagEdge2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋpageᚐEdge(ctx context.Context, sel ast.SelectionSet, v *page.Edge[*tags.Tag]) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._TagEdge(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNUpdatePerformerInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐUpdatePerformerInput(ctx context.Context, v any) (model.UpdatePerformerInput, error) {
 	res, err := ec.unmarshalInputUpdatePerformerInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -7266,6 +8609,11 @@ func (ec *executionContext) unmarshalNUpdatePlatformInput2githubᚗcomᚋloadᚑ
 
 func (ec *executionContext) unmarshalNUpdateStudioInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐUpdateStudioInput(ctx context.Context, v any) (model.UpdateStudioInput, error) {
 	res, err := ec.unmarshalInputUpdateStudioInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdateTagInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐUpdateTagInput(ctx context.Context, v any) (model.UpdateTagInput, error) {
+	res, err := ec.unmarshalInputUpdateTagInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -7599,6 +8947,13 @@ func (ec *executionContext) marshalOStudio2ᚖgithubᚗcomᚋloadᚑbearingᚑco
 		return graphql.Null
 	}
 	return ec._Studio(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOTag2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋtagsᚐTag(ctx context.Context, sel ast.SelectionSet, v *tags.Tag) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Tag(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {

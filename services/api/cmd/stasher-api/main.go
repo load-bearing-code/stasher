@@ -22,6 +22,7 @@ import (
 	"github.com/load-bearing-code/stasher/api/internal/platformaccounts"
 	"github.com/load-bearing-code/stasher/api/internal/platforms"
 	"github.com/load-bearing-code/stasher/api/internal/studios"
+	"github.com/load-bearing-code/stasher/api/internal/tags"
 )
 
 // shutdownTimeout bounds how long in-flight requests get to finish draining
@@ -63,6 +64,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		Studios:          studios.New(db),
 		Performers:       performers.New(db),
 		PlatformAccounts: platformaccounts.New(db),
+		Tags:             tags.New(db),
 	}
 
 	handler := api.NewRouter(services, cfg.APIKey)

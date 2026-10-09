@@ -64,3 +64,12 @@ models:
   PlatformAccountEdge:
     model:
       - github.com/load-bearing-code/stasher/api/internal/gql.PlatformAccountEdge
+  Tag:
+    model:
+      - github.com/load-bearing-code/stasher/api/internal/tags.Tag
+  TagConnection:
+    model:
+      - github.com/load-bearing-code/stasher/api/internal/gql.TagConnection
+  TagEdge:
+    model:
+      - github.com/load-bearing-code/stasher/api/internal/gql.TagEdge

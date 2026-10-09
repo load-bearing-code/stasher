@@ -27,11 +27,21 @@ type CreateStudioInput struct {
 	Name string `json:"name"`
 }
 
+type CreateTagInput struct {
+	Name         string   `json:"name"`
+	Description  *string  `json:"description,omitempty"`
+	PerformerIds []string `json:"performerIds,omitempty"`
+}
+
 type DeletePerformerInput struct {
 	ID string `json:"id"`
 }
 
 type DeletePlatformAccountInput struct {
+	ID string `json:"id"`
+}
+
+type DeleteTagInput struct {
 	ID string `json:"id"`
 }
 
@@ -66,6 +76,13 @@ type UpdatePlatformInput struct {
 type UpdateStudioInput struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+}
+
+type UpdateTagInput struct {
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Description  *string  `json:"description,omitempty"`
+	PerformerIds []string `json:"performerIds,omitempty"`
 }
 
 type Version struct {

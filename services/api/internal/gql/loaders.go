@@ -10,6 +10,7 @@ import (
 	"github.com/load-bearing-code/stasher/api/internal/performers"
 	"github.com/load-bearing-code/stasher/api/internal/platforms"
 	"github.com/load-bearing-code/stasher/api/internal/studios"
+	"github.com/load-bearing-code/stasher/api/internal/tags"
 )
 
 // Loaders batches and caches the by-id lookups resolvers make while
@@ -21,6 +22,7 @@ type Loaders struct {
 	Platform  *dataloadgen.Loader[string, platforms.Platform]
 	Studio    *dataloadgen.Loader[string, studios.Studio]
 	Performer *dataloadgen.Loader[string, performers.Performer]
+	Tag       *dataloadgen.Loader[string, tags.Tag]
 }
 
 func newLoaders(services *service.Services) *Loaders {
@@ -28,6 +30,7 @@ func newLoaders(services *service.Services) *Loaders {
 		Platform:  dataloadgen.NewMappedLoader(services.Platforms.GetByIDs),
 		Studio:    dataloadgen.NewMappedLoader(services.Studios.GetByIDs),
 		Performer: dataloadgen.NewMappedLoader(services.Performers.GetByIDs),
+		Tag:       dataloadgen.NewMappedLoader(services.Tags.GetByIDs),
 	}
 }
 

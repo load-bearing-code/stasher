@@ -12,6 +12,7 @@ import (
 	"github.com/load-bearing-code/stasher/api/internal/gql/model"
 	"github.com/load-bearing-code/stasher/api/internal/page"
 	"github.com/load-bearing-code/stasher/api/internal/performers"
+	"github.com/load-bearing-code/stasher/api/internal/tags"
 )
 
 // CreatePerformer is the resolver for the createPerformer field.
@@ -27,6 +28,19 @@ func (r *mutationResolver) UpdatePerformer(ctx context.Context, input model.Upda
 // DeletePerformer is the resolver for the deletePerformer field.
 func (r *mutationResolver) DeletePerformer(ctx context.Context, input model.DeletePerformerInput) (bool, error) {
 	return r.Services.Performers.Delete(ctx, string(input.ID))
+}
+
+// Tags is the resolver for the tags field.
+func (r *performerResolver) Tags(ctx context.Context, obj *performers.Performer) ([]*tags.Tag, error) {
+	rows, err := loadersFromContext(ctx).Tag.LoadAll(ctx, obj.TagIDs)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*tags.Tag, len(rows))
+	for i := range rows {
+		out[i] = &rows[i]
+	}
+	return out, nil
 }
 
 // Performers is the resolver for the performers field.
@@ -49,3 +63,8 @@ func (r *queryResolver) Performer(ctx context.Context, id *string, name *string)
 	}
 	return r.Services.Performers.Get(ctx, id, name)
 }
+
+// Performer returns PerformerResolver implementation.
+func (r *Resolver) Performer() PerformerResolver { return &performerResolver{r} }
+
+type performerResolver struct{ *Resolver }

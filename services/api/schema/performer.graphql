@@ -3,6 +3,7 @@ type Performer {
   name: String!
   disambiguation: String
   aliases: [String!]!
+  tags: [Tag!]!
   createdAt: String!
   updatedAt: String
 }

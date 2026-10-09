@@ -25,6 +25,7 @@ type Performer struct {
 	UpdatedAt      *string `db:"updated_at"`
 
 	Aliases []string `db:"-"`
+	TagIDs  []string `db:"-"`
 }
 
 // ID is bound to the GraphQL id field: IDBytes' binary storage isn't
@@ -74,6 +75,9 @@ func (r *Repository) List(ctx context.Context, a page.Args) ([]*Performer, error
 		return nil, err
 	}
 	if err := r.attachAliases(ctx, rows); err != nil {
+		return nil, err
+	}
+	if err := r.attachTags(ctx, rows); err != nil {
 		return nil, err
 	}
 	return rows, nil
@@ -197,6 +201,9 @@ func (r *Repository) Get(ctx context.Context, id, name *string) (*Performer, err
 	if err := r.attachAliases(ctx, []*Performer{&row}); err != nil {
 		return nil, err
 	}
+	if err := r.attachTags(ctx, []*Performer{&row}); err != nil {
+		return nil, err
+	}
 	return &row, nil
 }
 
@@ -256,7 +263,46 @@ func (r *Repository) ListByIDs(ctx context.Context, ids []string) ([]*Performer,
 	if err := r.attachAliases(ctx, rows); err != nil {
 		return nil, err
 	}
+	if err := r.attachTags(ctx, rows); err != nil {
+		return nil, err
+	}
 	return rows, nil
+}
+
+// attachTags batch-fetches and attaches tag links for rows, so List,
+// Get, and ListByIDs avoid a per-row round trip. Tags are owned by the
+// tags package; this is a read-only join against performer_tags to
+// serve the reciprocal Performer.tags field.
+func (r *Repository) attachTags(ctx context.Context, rows []*Performer) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	ids := make([][]byte, len(rows))
+	byID := make(map[string]*Performer, len(rows))
+	for i, row := range rows {
+		ids[i] = row.IDBytes
+		byID[string(row.IDBytes)] = row
+	}
+
+	type link struct {
+		PerformerID []byte `db:"performer_id"`
+		TagID       []byte `db:"tag_id"`
+	}
+	var links []link
+	query, args, err := sqlx.In(`SELECT performer_id, tag_id FROM performer_tags WHERE performer_id IN (?)`, ids)
+	if err != nil {
+		return err
+	}
+	if err := r.db.SelectContext(ctx, &links, r.db.Rebind(query), args...); err != nil {
+		return err
+	}
+	for _, l := range links {
+		var u uuid.UUID
+		copy(u[:], l.TagID)
+		performer := byID[string(l.PerformerID)]
+		performer.TagIDs = append(performer.TagIDs, u.String())
+	}
+	return nil
 }
 
 // insertAliases inserts aliases for performerID within tx.
