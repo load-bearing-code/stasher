@@ -1,13 +1,28 @@
 import { Button } from "@stasher/ui/components/button";
 import { Card } from "@stasher/ui/components/card";
+import { useServerMetadata } from "@/features/settings/library/api";
+import { apiEndpoint } from "@/shared/api/graphql";
 
-const LIBRARY_STATS = [
-  { label: "Posts", value: "1,404" },
-  { label: "Performers", value: "8" },
-  { label: "Tags", value: "412" },
-];
+const numberFormat = new Intl.NumberFormat();
+
+function formatCount(value: number | undefined): string {
+  return value === undefined ? "—" : numberFormat.format(value);
+}
 
 export function LibrarySection() {
+  const { data, isPending, isError, isFetching, refetch } = useServerMetadata();
+
+  const status = isError
+    ? { dot: "bg-destructive", label: "Disconnected" }
+    : isPending
+      ? { dot: "bg-warning", label: "Connecting…" }
+      : { dot: "bg-success", label: `Connected · v${data.version}` };
+
+  const stats = [
+    { label: "Performers", value: formatCount(data?.itemCounts.performers) },
+    { label: "Tags", value: formatCount(data?.itemCounts.tags) },
+  ];
+
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-2">
@@ -16,21 +31,28 @@ export function LibrarySection() {
         </h2>
         <Card variant="inset" className="gap-0 py-0">
           <div className="flex items-center gap-3 border-b border-border px-3.5 py-3">
-            <span className="size-2 flex-none rounded-full bg-success" />
+            <span
+              className={`size-2 flex-none rounded-full ${status.dot}`}
+            />
             <div className="min-w-0 flex-1">
-              <div className="font-mono text-[13px]">
-                http://localhost:8080
+              <div className="truncate font-mono text-[13px]">
+                {data?.endpoint || apiEndpoint}
               </div>
               <div className="mt-0.5 text-xs text-muted-foreground">
-                Connected · v1.10.3 · API key ending 7f3a
+                {status.label}
               </div>
             </div>
-            <Button variant="secondary" size="sm">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={isFetching}
+              onClick={() => refetch()}
+            >
               Test
             </Button>
           </div>
-          <div className="grid grid-cols-3 px-3.5 py-3">
-            {LIBRARY_STATS.map((stat) => (
+          <div className="grid grid-cols-2 px-3.5 py-3">
+            {stats.map((stat) => (
               <div key={stat.label}>
                 <div className="text-[17px] font-semibold tracking-tight">
                   {stat.value}
