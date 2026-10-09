@@ -1,0 +1,13 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+dev:
+    docker compose --file ../../compose.yaml up --build web
+
+build:
+    pnpm build
+
+test:
+    echo "no tests configured for web"
+
+lint:
+    pnpm typecheck

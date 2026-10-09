@@ -13,6 +13,30 @@ services:
       - api-gopath:/go/pkg/mod
       - api-db:/data
 
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: development
+    ports:
+      - "${WEB_PORT:-1430}:1430"
+    depends_on:
+      - api
+    volumes:
+      - ./:/app
+      # Named volumes shadow the bind mount so the image's installed
+      # node_modules (seeded on first run) are used instead of the host's.
+      - web-root-modules:/app/node_modules
+      - web-app-modules:/app/apps/web/node_modules
+      - web-ui-modules:/app/packages/ui/node_modules
+      - web-core-modules:/app/packages/core/node_modules
+      - web-protocol-modules:/app/packages/protocol/node_modules
+
 volumes:
   api-gopath:
   api-db:
+  web-root-modules:
+  web-app-modules:
+  web-ui-modules:
+  web-core-modules:
+  web-protocol-modules:

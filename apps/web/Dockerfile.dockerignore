@@ -1,0 +1,29 @@
+.git/
+.github/
+.vscode/
+.idea/
+
+# node / build output
+**/node_modules/
+**/dist/
+**/dist-ssr/
+**/.turbo/
+**/.output/
+**/.wxt/
+
+# rust / go — not needed to build the web app
+target/
+crates/
+services/
+apps/desktop/src-tauri/
+Cargo.lock
+Cargo.toml
+rust-toolchain.toml
+
+# misc
+**/*.log
+**/.DS_Store
+**/.env
+**/.env.*
+apps/web/Dockerfile
+apps/web/Dockerfile.dockerignore

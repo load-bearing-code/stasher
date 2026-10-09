@@ -19,7 +19,7 @@ lint *ARGS:
 _dispatch task *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
-    declare -A targets=([api]=services/api [extension]=apps/extension)
+    declare -A targets=([api]=services/api [extension]=apps/extension [web]=apps/web)
     for name in "${@:2}"; do
       dir="${targets[$name]:-}"
       if [[ -z "$dir" ]]; then
