@@ -37,20 +37,36 @@ function SheetBackdrop({
 }
 
 /** The drag handle at the top of the sheet. Attach an onClick (or wire
- * arrow keys on the content) to cycle detents. */
-function SheetHandle({ className, ...props }: React.ComponentProps<"button">) {
+ * arrow keys on the content) to cycle detents. When the sheet can't be
+ * resized (no onClick), renders an inert placeholder of the same size so
+ * the layout doesn't shift between resizable and fixed-height sheets. */
+function SheetHandle({
+  className,
+  onClick,
+  ...props
+}: React.ComponentProps<"button">) {
+  if (!onClick) {
+    return (
+      <div
+        data-slot="sheet-handle"
+        aria-hidden="true"
+        className={cn("mx-auto mt-2 mb-1 h-4 w-12 flex-none", className)}
+      />
+    )
+  }
   return (
     <button
       type="button"
       data-slot="sheet-handle"
       aria-label="Resize sheet"
+      onClick={onClick}
       className={cn(
-        "mx-auto mt-2 mb-1 flex h-4 w-10 flex-none cursor-grab items-center justify-center active:cursor-grabbing",
+        "mx-auto mt-2 mb-1 flex h-4 w-12 flex-none cursor-grab items-center justify-center active:cursor-grabbing",
         className
       )}
       {...props}
     >
-      <span className="h-1.5 w-9 rounded-full bg-muted-foreground/30" />
+      <span className="h-1.5 w-11 rounded-full bg-muted-foreground/30" />
     </button>
   )
 }
@@ -81,8 +97,8 @@ function SheetContent({
       <Dialog.Popup
         data-slot="sheet-content"
         className={cn(
-          "glass fixed inset-x-0 bottom-0 z-50 mx-auto flex w-full max-w-[720px] flex-col overflow-hidden rounded-t-2xl shadow-2xl outline-none",
-          "transition-transform duration-300 ease-out data-[ending-style]:translate-y-full data-[starting-style]:translate-y-full",
+          "glass fixed inset-x-0 bottom-0 z-50 mx-auto flex w-full max-w-[720px] flex-col overflow-hidden rounded-t-xl shadow-2xl outline-none",
+          "transition-[transform,height] duration-300 ease-out data-[ending-style]:translate-y-full data-[starting-style]:translate-y-full",
           className
         )}
         {...props}
@@ -99,7 +115,7 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sheet-header"
       className={cn(
-        "flex items-start gap-2 px-4 pt-1 pb-3",
+        "flex items-start gap-2 border-b border-border/60 px-4 pb-5",
         className
       )}
       {...props}

@@ -1,5 +1,5 @@
 import { cn } from "@stasher/ui/lib/utils";
-import { Check, EyeOff } from "lucide-react";
+import { Check, EyeOff, Tag as TagIcon } from "lucide-react";
 import type { TagCardData } from "@/features/settings/tags/types";
 
 interface TagCardProps {
@@ -31,38 +31,42 @@ export function TagCard({
         type="button"
         onClick={() => onOpen(tag.id)}
         className={cn(
-          "flex w-full flex-col overflow-hidden rounded-xl border border-transparent bg-muted text-left transition-colors hover:border-border",
+          "flex w-full cursor-pointer flex-col overflow-hidden rounded-xl border border-transparent bg-muted text-left transition-colors hover:border-border",
           selected && "border-primary",
         )}
       >
-        <div className="grid grid-cols-2 gap-0.5 bg-border/60">
-          {cells.map((src, i) => (
-            <div key={i} className="aspect-[4/3] bg-muted">
-              {src ? (
-                <img
-                  src={src}
-                  alt=""
-                  className="size-full object-cover"
-                  loading="lazy"
-                />
-              ) : null}
-            </div>
-          ))}
-        </div>
+        {thumbnails.length > 0 ? (
+          <div className="grid aspect-[4/3] grid-cols-2 gap-0.5 bg-border/60">
+            {cells.map((src, i) => (
+              <div key={i} className="bg-muted">
+                {src ? (
+                  <img
+                    src={src}
+                    alt=""
+                    className="size-full object-cover"
+                    loading="lazy"
+                  />
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex aspect-[4/3] items-center justify-center bg-muted">
+            <TagIcon className="mt-1.5 size-7 text-muted-foreground" />
+          </div>
+        )}
         <div className="flex flex-col gap-0.5 px-2.5 py-2">
           <span
             className={cn(
-              "truncate text-[13px] font-medium",
+              "truncate text-[13px] font-semibold text-foreground",
               tag.hidden && "text-muted-foreground",
             )}
           >
             {tag.name}
           </span>
-          {tag.postCount !== undefined ? (
-            <span className="text-xs text-muted-foreground">
-              {tag.postCount} {tag.postCount === 1 ? "post" : "posts"}
-            </span>
-          ) : null}
+          <span className="text-xs text-foreground/60">
+            {tag.postCount ?? 0} {tag.postCount === 1 ? "post" : "posts"}
+          </span>
         </div>
       </button>
 
@@ -75,7 +79,7 @@ export function TagCard({
           "absolute top-2 left-2 flex size-5 items-center justify-center rounded-md border transition-colors",
           selected
             ? "border-primary bg-primary text-primary-foreground"
-            : "border-border bg-background/80 text-transparent opacity-0 backdrop-blur-sm group-hover/tag:opacity-100",
+            : "border-transparent bg-background/50 text-transparent backdrop-blur-sm group-hover/tag:border-border",
         )}
       >
         <Check className="size-3.5" />
