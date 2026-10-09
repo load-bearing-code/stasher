@@ -1,12 +1,11 @@
 import { cn } from "@stasher/ui/lib/utils";
 import { Link, useLocation } from "@tanstack/react-router";
-import { Archive, Globe, Tag, Wrench } from "lucide-react";
+import { Archive, Globe, Tag } from "lucide-react";
 
 const NAV_ITEMS = [
   { to: "/settings/library", label: "Library", icon: Archive },
-  { to: "/settings/tags", label: "Tags", icon: Tag },
   { to: "/settings/platforms", label: "Platforms", icon: Globe },
-  { to: "/settings/maintenance", label: "Maintenance", icon: Wrench },
+  { to: "/settings/tags", label: "Tags", icon: Tag },
 ] as const;
 
 export function SettingsNav() {
