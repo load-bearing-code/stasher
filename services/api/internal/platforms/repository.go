@@ -2,6 +2,8 @@ package platforms
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
 	"github.com/jmoiron/sqlx"
 
@@ -76,6 +78,27 @@ func (r *Repository) Update(ctx context.Context, id, name string) (*Platform, er
 		return nil, err
 	}
 	return &Platform{ID: id, Name: name}, nil
+}
+
+// Get returns the platform matching id if given, else name. It returns nil,
+// nil if no row matches.
+func (r *Repository) Get(ctx context.Context, id, name *string) (*Platform, error) {
+	var query string
+	var arg string
+	if id != nil {
+		query, arg = `SELECT id, name FROM platforms WHERE id = ?`, *id
+	} else {
+		query, arg = `SELECT id, name FROM platforms WHERE name = ?`, *name
+	}
+
+	var row Platform
+	if err := r.db.GetContext(ctx, &row, r.db.Rebind(query), arg); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &row, nil
 }
 
 // ListByIDs returns the platforms matching ids, in no particular order

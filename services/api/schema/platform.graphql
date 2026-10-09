@@ -16,6 +16,7 @@ type PlatformConnection {
 
 extend type Query {
   platforms(first: Int, after: String): PlatformConnection!
+  platform(id: ID, name: String): Platform
 }
 
 input CreatePlatformInput {

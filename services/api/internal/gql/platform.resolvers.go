@@ -7,6 +7,7 @@ package gql
 
 import (
 	"context"
+	"errors"
 
 	"github.com/load-bearing-code/stasher/api/internal/gql/model"
 	"github.com/load-bearing-code/stasher/api/internal/page"
@@ -34,6 +35,14 @@ func (r *queryResolver) Platforms(ctx context.Context, first *int, after *string
 		return nil, err
 	}
 	return page.NewConnection(res, args.After != nil, (*platforms.Platform).Cursor, r.Services.Platforms.Count), nil
+}
+
+// Platform is the resolver for the platform field.
+func (r *queryResolver) Platform(ctx context.Context, id *string, name *string) (*platforms.Platform, error) {
+	if (id == nil) == (name == nil) {
+		return nil, errors.New("platform: specify exactly one of id or name")
+	}
+	return r.Services.Platforms.Get(ctx, id, name)
 }
 
 // Mutation returns MutationResolver implementation.

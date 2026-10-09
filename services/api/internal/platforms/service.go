@@ -47,6 +47,12 @@ func (s *Service) Update(ctx context.Context, id, name string) (*Platform, error
 	return s.repo.Update(ctx, id, name)
 }
 
+// Get returns the platform matching id if given, else name. It returns nil,
+// nil if no row matches.
+func (s *Service) Get(ctx context.Context, id, name *string) (*Platform, error) {
+	return s.repo.Get(ctx, id, name)
+}
+
 // GetByIDs returns the platforms matching ids, keyed by id. An id with no
 // matching row is simply absent from the map, letting callers (e.g. a
 // dataloader) decide how to treat a miss.
