@@ -8,7 +8,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 
-	"github.com/load-bearing-code/stasher/api/internal"
+	service "github.com/load-bearing-code/stasher/api/internal"
 	"github.com/load-bearing-code/stasher/api/internal/api/middleware"
 	"github.com/load-bearing-code/stasher/api/internal/gql"
 )
@@ -17,13 +17,16 @@ import (
 // by an optional ApiKey header check (apiKey; empty disables the check),
 // and a playground at / for local exploration. publicURL is the
 // externally reachable endpoint reported via serverMetadata.
-func NewRouter(services *service.Services, apiKey, publicURL string) http.Handler {
+// corsOrigins is a comma-separated allowlist of browser origins (empty
+// allows any).
+func NewRouter(services *service.Services, apiKey, publicURL, corsOrigins string) http.Handler {
 	resolver := gql.New(services, publicURL)
 	schema := gql.NewExecutableSchema(gql.Config{Resolvers: resolver})
 	graphqlHandler := handler.NewDefaultServer(schema)
 
 	mux := http.NewServeMux()
 	mux.Handle("/", playground.Handler("Stasher API", "/graphql"))
-	mux.Handle("/graphql", middleware.APIKey(apiKey)(gql.LoadersMiddleware(services)(graphqlHandler)))
+	mux.Handle("/graphql", middleware.CORS(corsOrigins)(middleware.APIKey(apiKey)(gql.LoadersMiddleware(services)(graphqlHandler))))
+
 	return mux
 }

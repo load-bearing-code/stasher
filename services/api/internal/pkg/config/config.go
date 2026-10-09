@@ -17,15 +17,20 @@ type Config struct {
 	// (PUBLIC_URL), reported via serverMetadata. The server sits behind
 	// a proxy, so it cannot derive this from ListenAddr.
 	PublicURL string
+	// CORSOrigins is a comma-separated allowlist of browser origins
+	// permitted to call the API (CORS_ORIGINS). Empty allows any origin,
+	// so local dev just works.
+	CORSOrigins string
 }
 
 // Load reads configuration from the environment, applying defaults.
 func Load() *Config {
 	return &Config{
-		ListenAddr: envOr("ADDR", ":8080"),
-		DBPath:     envOr("DB_PATH", "stasher.db"),
-		APIKey:     os.Getenv("API_KEY"),
-		PublicURL:  os.Getenv("PUBLIC_URL"),
+		ListenAddr:  envOr("ADDR", ":8080"),
+		DBPath:      envOr("DB_PATH", "stasher.db"),
+		APIKey:      os.Getenv("API_KEY"),
+		PublicURL:   os.Getenv("PUBLIC_URL"),
+		CORSOrigins: os.Getenv("CORS_ORIGINS"),
 	}
 }
 

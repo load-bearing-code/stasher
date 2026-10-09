@@ -67,7 +67,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		Tags:             tags.New(db),
 	}
 
-	handler := api.NewRouter(services, cfg.APIKey, cfg.PublicURL)
+	handler := api.NewRouter(services, cfg.APIKey, cfg.PublicURL, cfg.CORSOrigins)
 	srv := &http.Server{
 		Addr:              cfg.ListenAddr,
 		Handler:           handler,
