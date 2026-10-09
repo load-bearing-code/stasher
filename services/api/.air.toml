@@ -1,0 +1,8 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/main ./cmd/stasher-api"
+bin = "./tmp/main"
+exclude_dir = ["tmp", "bin"]
+include_ext = ["go"]

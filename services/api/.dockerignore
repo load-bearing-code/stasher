@@ -1,0 +1,15 @@
+.git/
+.github/
+.vscode/
+.idea/
+bin/
+tmp/
+*.log
+.env
+.env.*
+.DS_Store
+README.md
+LICENSE
+Dockerfile
+.dockerignore
+stasher.db

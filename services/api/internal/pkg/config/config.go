@@ -1,0 +1,32 @@
+// Package config loads runtime configuration from the environment.
+package config
+
+import "os"
+
+// Config holds the API's runtime configuration, loaded from env.
+type Config struct {
+	// ListenAddr is the address the HTTP server binds to (ADDR).
+	ListenAddr string
+	// DBPath is the filesystem path to the SQLite database (DB_PATH).
+	DBPath string
+	// APIKey, when set, must be sent as the ApiKey request header on
+	// every /graphql request (API_KEY). Unset by default so local dev
+	// just works.
+	APIKey string
+}
+
+// Load reads configuration from the environment, applying defaults.
+func Load() *Config {
+	return &Config{
+		ListenAddr: envOr("ADDR", ":8080"),
+		DBPath:     envOr("DB_PATH", "stasher.db"),
+		APIKey:     os.Getenv("API_KEY"),
+	}
+}
+
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}

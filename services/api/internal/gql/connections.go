@@ -1,0 +1,17 @@
+package gql
+
+// This file will not be regenerated automatically.
+//
+// Connection/Edge types for every paginated field are generic
+// instantiations of internal/page's relay helper, bound to gqlgen via
+// gqlgen.yml's models config rather than left for gqlgen to generate.
+
+import (
+	"github.com/load-bearing-code/stasher/api/internal/page"
+	"github.com/load-bearing-code/stasher/api/internal/platforms"
+)
+
+type (
+	PlatformConnection = page.Connection[*platforms.Platform]
+	PlatformEdge       = page.Edge[*platforms.Platform]
+)

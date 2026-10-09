@@ -1,0 +1,39 @@
+schema:
+  - schema/*.graphql
+
+exec:
+  filename: internal/gql/generated.go
+  package: gql
+
+model:
+  filename: internal/gql/model/models_gen.go
+  package: model
+
+resolver:
+  layout: follow-schema
+  dir: internal/gql
+  package: gql
+  filename_template: "{name}.resolvers.go"
+
+autobind:
+  - "github.com/load-bearing-code/stasher/api/internal/gql/model"
+
+models:
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.ID
+  Time:
+    model:
+      - github.com/99designs/gqlgen/graphql.Time
+  Platform:
+    model:
+      - github.com/load-bearing-code/stasher/api/internal/platforms.Platform
+  PlatformConnection:
+    model:
+      - github.com/load-bearing-code/stasher/api/internal/gql.PlatformConnection
+  PlatformEdge:
+    model:
+      - github.com/load-bearing-code/stasher/api/internal/gql.PlatformEdge
+  PageInfo:
+    model:
+      - github.com/load-bearing-code/stasher/api/internal/page.PageInfo

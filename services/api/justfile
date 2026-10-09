@@ -1,0 +1,13 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+dev:
+    docker compose --file ../../compose.yaml up --build api
+
+build:
+    go build -o bin/stasher-api ./cmd/stasher-api
+
+test:
+    go test ./...
+
+lint:
+    go vet ./...

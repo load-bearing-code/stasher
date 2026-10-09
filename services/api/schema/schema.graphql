@@ -1,0 +1,23 @@
+"""
+RFC 3339 timestamp.
+"""
+scalar Time
+
+type Version {
+  version: String!
+}
+
+"""
+Relay's cursor pagination page info. See
+https://relay.dev/graphql/connections.htm.
+"""
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+type Query {
+  version: Version!
+}
