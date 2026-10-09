@@ -18,3 +18,18 @@ extend type Query {
   studios(first: Int, after: String): StudioConnection!
   studio(id: ID, name: String): Studio
 }
+
+input CreateStudioInput {
+  id: ID!
+  name: String!
+}
+
+input UpdateStudioInput {
+  id: ID!
+  name: String!
+}
+
+extend type Mutation {
+  createStudio(input: CreateStudioInput!): Studio!
+  updateStudio(input: UpdateStudioInput!): Studio!
+}

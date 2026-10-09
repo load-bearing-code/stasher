@@ -41,7 +41,9 @@ type DirectiveRoot struct {
 type ComplexityRoot struct {
 	Mutation struct {
 		CreatePlatform func(childComplexity int, input model.CreatePlatformInput) int
+		CreateStudio   func(childComplexity int, input model.CreateStudioInput) int
 		UpdatePlatform func(childComplexity int, input model.UpdatePlatformInput) int
+		UpdateStudio   func(childComplexity int, input model.UpdateStudioInput) int
 	}
 
 	PageInfo struct {
@@ -103,6 +105,8 @@ type ComplexityRoot struct {
 type MutationResolver interface {
 	CreatePlatform(ctx context.Context, input model.CreatePlatformInput) (*platforms.Platform, error)
 	UpdatePlatform(ctx context.Context, input model.UpdatePlatformInput) (*platforms.Platform, error)
+	CreateStudio(ctx context.Context, input model.CreateStudioInput) (*studios.Studio, error)
+	UpdateStudio(ctx context.Context, input model.UpdateStudioInput) (*studios.Studio, error)
 }
 type QueryResolver interface {
 	Version(ctx context.Context) (*model.Version, error)
@@ -141,6 +145,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.CreatePlatform(childComplexity, args["input"].(model.CreatePlatformInput)), true
+	case "Mutation.createStudio":
+		if e.ComplexityRoot.Mutation.CreateStudio == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createStudio_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.CreateStudio(childComplexity, args["input"].(model.CreateStudioInput)), true
 	case "Mutation.updatePlatform":
 		if e.ComplexityRoot.Mutation.UpdatePlatform == nil {
 			break
@@ -152,6 +167,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.UpdatePlatform(childComplexity, args["input"].(model.UpdatePlatformInput)), true
+	case "Mutation.updateStudio":
+		if e.ComplexityRoot.Mutation.UpdateStudio == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateStudio_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.UpdateStudio(childComplexity, args["input"].(model.UpdateStudioInput)), true
 
 	case "PageInfo.endCursor":
 		if e.ComplexityRoot.PageInfo.EndCursor == nil {
@@ -335,7 +361,9 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	ec := newExecutionContext(opCtx, e, make(chan graphql.DeferredResult))
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
 		ec.unmarshalInputCreatePlatformInput,
+		ec.unmarshalInputCreateStudioInput,
 		ec.unmarshalInputUpdatePlatformInput,
+		ec.unmarshalInputUpdateStudioInput,
 	)
 	first := true
 
@@ -490,6 +518,21 @@ type StudioConnection {
 extend type Query {
   studios(first: Int, after: String): StudioConnection!
   studio(id: ID, name: String): Studio
+}
+
+input CreateStudioInput {
+  id: ID!
+  name: String!
+}
+
+input UpdateStudioInput {
+  id: ID!
+  name: String!
+}
+
+extend type Mutation {
+  createStudio(input: CreateStudioInput!): Studio!
+  updateStudio(input: UpdateStudioInput!): Studio!
 }
 `, BuiltIn: false},
 }
@@ -715,12 +758,40 @@ func (ec *executionContext) field_Mutation_createPlatform_args(ctx context.Conte
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_createStudio_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.CreateStudioInput, error) {
+			return ec.unmarshalNCreateStudioInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐCreateStudioInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_updatePlatform_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (model.UpdatePlatformInput, error) {
 			return ec.unmarshalNUpdatePlatformInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐUpdatePlatformInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateStudio_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.UpdateStudioInput, error) {
+			return ec.unmarshalNUpdateStudioInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐUpdateStudioInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -973,6 +1044,94 @@ func (ec *executionContext) fieldContext_Mutation_updatePlatform(ctx context.Con
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_updatePlatform_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_createStudio(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_createStudio(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().CreateStudio(ctx, fc.Args["input"].(model.CreateStudioInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *studios.Studio) graphql.Marshaler {
+			return ec.marshalNStudio2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋstudiosᚐStudio(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_createStudio(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Studio(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createStudio_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateStudio(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_updateStudio(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().UpdateStudio(ctx, fc.Args["input"].(model.UpdateStudioInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *studios.Studio) graphql.Marshaler {
+			return ec.marshalNStudio2ᚖgithubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋstudiosᚐStudio(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_updateStudio(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Studio(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateStudio_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -2850,8 +3009,82 @@ func (ec *executionContext) unmarshalInputCreatePlatformInput(ctx context.Contex
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputCreateStudioInput(ctx context.Context, obj any) (model.CreateStudioInput, error) {
+	var it model.CreateStudioInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "name"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputUpdatePlatformInput(ctx context.Context, obj any) (model.UpdatePlatformInput, error) {
 	var it model.UpdatePlatformInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "name"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputUpdateStudioInput(ctx context.Context, obj any) (model.UpdateStudioInput, error) {
+	var it model.UpdateStudioInput
 	if obj == nil {
 		return it, nil
 	}
@@ -2925,6 +3158,20 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "updatePlatform":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_updatePlatform(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createStudio":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createStudio(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updateStudio":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateStudio(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -3953,6 +4200,11 @@ func (ec *executionContext) unmarshalNCreatePlatformInput2githubᚗcomᚋloadᚑ
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalNCreateStudioInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐCreateStudioInput(ctx context.Context, v any) (model.CreateStudioInput, error) {
+	res, err := ec.unmarshalInputCreateStudioInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNID2string(ctx context.Context, v any) (string, error) {
 	res, err := graphql.UnmarshalID(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -4105,6 +4357,11 @@ func (ec *executionContext) marshalNStudioEdge2ᚖgithubᚗcomᚋloadᚑbearing�
 
 func (ec *executionContext) unmarshalNUpdatePlatformInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐUpdatePlatformInput(ctx context.Context, v any) (model.UpdatePlatformInput, error) {
 	res, err := ec.unmarshalInputUpdatePlatformInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdateStudioInput2githubᚗcomᚋloadᚑbearingᚑcodeᚋstasherᚋapiᚋinternalᚋgqlᚋmodelᚐUpdateStudioInput(ctx context.Context, v any) (model.UpdateStudioInput, error) {
+	res, err := ec.unmarshalInputUpdateStudioInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 

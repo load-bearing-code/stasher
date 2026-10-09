@@ -9,9 +9,20 @@ import (
 	"context"
 	"errors"
 
+	"github.com/load-bearing-code/stasher/api/internal/gql/model"
 	"github.com/load-bearing-code/stasher/api/internal/page"
 	"github.com/load-bearing-code/stasher/api/internal/studios"
 )
+
+// CreateStudio is the resolver for the createStudio field.
+func (r *mutationResolver) CreateStudio(ctx context.Context, input model.CreateStudioInput) (*studios.Studio, error) {
+	return r.Services.Studios.Create(ctx, string(input.ID), input.Name)
+}
+
+// UpdateStudio is the resolver for the updateStudio field.
+func (r *mutationResolver) UpdateStudio(ctx context.Context, input model.UpdateStudioInput) (*studios.Studio, error) {
+	return r.Services.Studios.Update(ctx, string(input.ID), input.Name)
+}
 
 // Studios is the resolver for the studios field.
 func (r *queryResolver) Studios(ctx context.Context, first *int, after *string) (*page.Connection[*studios.Studio], error) {

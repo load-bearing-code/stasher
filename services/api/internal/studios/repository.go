@@ -60,6 +60,24 @@ func (r *Repository) Count(ctx context.Context) (int, error) {
 	return count, nil
 }
 
+// Create inserts a new studio row and returns it.
+func (r *Repository) Create(ctx context.Context, id, name string) (*Studio, error) {
+	_, err := r.db.ExecContext(ctx, r.db.Rebind(`INSERT INTO studios (id, name) VALUES (?, ?)`), id, name)
+	if err != nil {
+		return nil, err
+	}
+	return &Studio{ID: id, Name: name}, nil
+}
+
+// Update changes an existing studio's name and returns it.
+func (r *Repository) Update(ctx context.Context, id, name string) (*Studio, error) {
+	_, err := r.db.ExecContext(ctx, r.db.Rebind(`UPDATE studios SET name = ? WHERE id = ?`), name, id)
+	if err != nil {
+		return nil, err
+	}
+	return &Studio{ID: id, Name: name}, nil
+}
+
 // Get returns the studio matching id if given, else name. It returns nil,
 // nil if no row matches.
 func (r *Repository) Get(ctx context.Context, id, name *string) (*Studio, error) {
