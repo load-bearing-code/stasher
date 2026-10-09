@@ -12,7 +12,7 @@ This block is written and re-added by `turbo` before repository-scoped commands 
 # Code style
 
 - Name TypeScript and React files in lower-kebab-case (e.g. `storage-settings.tsx`, `folder-browser.tsx`, `icon-input.tsx`). The export keeps its own casing — components stay PascalCase (`StorageSettings`), hooks stay camelCase (`useStashConnection`); only the filename is kebab-case.
-- Organize app code by feature: `features/<feature>/` holds that feature's `api.ts`, components, hooks, and types, with nested subfeatures (e.g. `features/settings/storage/`) and a `components/` subfolder for presentational pieces. Put cross-feature helpers under `shared/`.
+- Organize app code by feature: `features/<feature>/` holds that feature's data layer (named `<feature>-api.ts`, e.g. `library-api.ts`, `tags-api.ts`), components, hooks, and types, with nested subfeatures (e.g. `features/settings/storage/`) and a `components/` subfolder for presentational pieces. Put cross-feature helpers under `shared/`.
 
 # Committing
 

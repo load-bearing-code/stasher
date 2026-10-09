@@ -1,6 +1,6 @@
 import { Button } from "@stasher/ui/components/button";
 import { Card } from "@stasher/ui/components/card";
-import { useServerMetadata } from "@/features/settings/library/api";
+import { useServerMetadata } from "@/features/settings/library/library-api";
 import { apiEndpoint } from "@/shared/api/graphql";
 
 const numberFormat = new Intl.NumberFormat();
