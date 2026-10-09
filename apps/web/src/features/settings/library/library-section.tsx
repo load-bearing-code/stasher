@@ -21,6 +21,7 @@ export function LibrarySection() {
   const stats = [
     { label: "Performers", value: formatCount(data?.itemCounts.performers) },
     { label: "Tags", value: formatCount(data?.itemCounts.tags) },
+    { label: "Platforms", value: formatCount(data?.itemCounts.platforms) },
   ];
 
   return (
@@ -51,7 +52,7 @@ export function LibrarySection() {
               Test
             </Button>
           </div>
-          <div className="grid grid-cols-2 px-3.5 py-3">
+          <div className="grid grid-cols-3 px-3.5 py-3">
             {stats.map((stat) => (
               <div key={stat.label}>
                 <div className="text-[17px] font-semibold tracking-tight">

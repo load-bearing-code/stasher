@@ -7,6 +7,7 @@ export interface ServerMetadata {
   itemCounts: {
     tags: number;
     performers: number;
+    platforms: number;
   };
 }
 
@@ -18,6 +19,7 @@ const SERVER_METADATA_QUERY = /* GraphQL */ `
       itemCounts {
         tags
         performers
+        platforms
       }
     }
   }

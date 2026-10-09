@@ -21,9 +21,17 @@ func (r *queryResolver) ServerMetadata(ctx context.Context) (*model.ServerMetada
 	if err != nil {
 		return nil, err
 	}
+	platformCount, err := r.Services.Platforms.Count(ctx)
+	if err != nil {
+		return nil, err
+	}
 	return &model.ServerMetadata{
-		Version:    Version,
-		Endpoint:   r.PublicURL,
-		ItemCounts: &model.ServerMetadataItemCounts{Tags: tagCount, Performers: performerCount},
+		Version:  Version,
+		Endpoint: r.PublicURL,
+		ItemCounts: &model.ServerMetadataItemCounts{
+			Tags:       tagCount,
+			Performers: performerCount,
+			Platforms:  platformCount,
+		},
 	}, nil
 }

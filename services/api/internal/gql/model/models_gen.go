@@ -64,6 +64,7 @@ type ServerMetadata struct {
 type ServerMetadataItemCounts struct {
 	Tags       int `json:"tags"`
 	Performers int `json:"performers"`
+	Platforms  int `json:"platforms"`
 }
 
 type UpdatePerformerInput struct {

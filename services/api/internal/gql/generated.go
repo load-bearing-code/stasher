@@ -152,6 +152,7 @@ type ComplexityRoot struct {
 
 	ServerMetadataItemCounts struct {
 		Performers func(childComplexity int) int
+		Platforms  func(childComplexity int) int
 		Tags       func(childComplexity int) int
 	}
 
@@ -794,6 +795,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ServerMetadataItemCounts.Performers(childComplexity), true
+	case "ServerMetadataItemCounts.platforms":
+		if e.ComplexityRoot.ServerMetadataItemCounts.Platforms == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ServerMetadataItemCounts.Platforms(childComplexity), true
 	case "ServerMetadataItemCounts.tags":
 		if e.ComplexityRoot.ServerMetadataItemCounts.Tags == nil {
 			break
@@ -1010,6 +1017,7 @@ var sources = []*ast.Source{
 	{Name: "../../schema/metadata.graphql", Input: `type ServerMetadataItemCounts {
   tags: Int!
   performers: Int!
+  platforms: Int!
 }
 
 type ServerMetadata {
@@ -1434,6 +1442,8 @@ func (ec *executionContext) childFields_ServerMetadataItemCounts(ctx context.Con
 		return ec.fieldContext_ServerMetadataItemCounts_tags(ctx, field)
 	case "performers":
 		return ec.fieldContext_ServerMetadataItemCounts_performers(ctx, field)
+	case "platforms":
+		return ec.fieldContext_ServerMetadataItemCounts_platforms(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type ServerMetadataItemCounts", field.Name)
 }
@@ -4437,6 +4447,29 @@ func (ec *executionContext) _ServerMetadataItemCounts_performers(ctx context.Con
 	)
 }
 func (ec *executionContext) fieldContext_ServerMetadataItemCounts_performers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ServerMetadataItemCounts", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _ServerMetadataItemCounts_platforms(ctx context.Context, field graphql.CollectedField, obj *model.ServerMetadataItemCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ServerMetadataItemCounts_platforms(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Platforms, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ServerMetadataItemCounts_platforms(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("ServerMetadataItemCounts", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
@@ -7827,6 +7860,11 @@ func (ec *executionContext) _ServerMetadataItemCounts(ctx context.Context, sel a
 			}
 		case "performers":
 			out.Values[i] = ec._ServerMetadataItemCounts_performers(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "platforms":
+			out.Values[i] = ec._ServerMetadataItemCounts_platforms(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

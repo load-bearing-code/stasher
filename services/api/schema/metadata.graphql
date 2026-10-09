@@ -1,6 +1,7 @@
 type ServerMetadataItemCounts {
   tags: Int!
   performers: Int!
+  platforms: Int!
 }
 
 type ServerMetadata {
