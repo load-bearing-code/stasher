@@ -1,3 +1,4 @@
+import { bootAccent } from "@stasher/ui/lib/accent-boot";
 import { DatabaseIcon, GlobeIcon, HardDriveIcon } from "lucide-react";
 import { type ComponentType, StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -5,6 +6,8 @@ import { SourcesSettings } from "@/features/settings/sources/sources-settings";
 import { StashSettings } from "@/features/settings/stash/stash-settings";
 import { StorageSettings } from "@/features/settings/storage/storage-settings";
 import "./index.css";
+
+bootAccent();
 
 const TABS: {
   id: string;
@@ -21,14 +24,14 @@ function App() {
   const [active, setActive] = useState("storage");
 
   return (
-    <main className="glass-thick flex h-svh flex-col overflow-hidden text-sm">
+    <main className="flex h-svh flex-col overflow-hidden text-body">
       <nav
         data-tauri-drag-region
-        className="relative flex justify-center gap-0.5 border-b px-3 pt-10 pb-2.5"
+        className="relative flex justify-center gap-0.5 border-b border-divider px-3 pt-10 pb-2.5"
       >
         <h1
           data-tauri-drag-region
-          className="absolute inset-x-0 top-0 flex h-9 items-center justify-center text-[13px] font-semibold text-secondary-foreground/80"
+          className="absolute inset-x-0 top-0 flex h-9 items-center justify-center text-body font-semibold text-foreground-secondary"
         >
           {TABS.find((tab) => tab.id === active)?.label}
         </h1>
@@ -39,11 +42,11 @@ function App() {
             onClick={() => setActive(id)}
             className={`flex w-17 cursor-pointer flex-col items-center gap-1 rounded-lg py-1.5 text-[11px] transition-colors ${
               active === id
-                ? "bg-accent text-foreground"
-                : "text-secondary-foreground/80 hover:text-foreground"
+                ? "bg-acc/12 text-foreground"
+                : "text-foreground-secondary hover:text-foreground"
             }`}
           >
-            <Icon className={`size-[18px] ${active === id ? "text-tint-text" : ""}`} />
+            <Icon className={`size-[18px] ${active === id ? "text-acc" : ""}`} />
             {label}
           </button>
         ))}

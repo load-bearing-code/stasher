@@ -89,7 +89,7 @@ export function PostStatusCard({
             href={postUrl}
             target="_blank"
             rel="noreferrer"
-            className="block truncate text-sm font-medium hover:underline"
+            className="block truncate text-body font-medium hover:underline"
           >
             {post?.title ?? `Post ${postId}`}
           </a>

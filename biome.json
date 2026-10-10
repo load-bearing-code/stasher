@@ -43,7 +43,9 @@
       "includes": [
         "packages/ui/src/components/**",
         "packages/ui/src/styles/**",
+        "packages/ui/src/lib/afterhours-accent.ts",
         "packages/protocol/src/generated/**",
+        "scripts/check-css-vars.mjs",
         "apps/*/public/**"
       ],
       "linter": {

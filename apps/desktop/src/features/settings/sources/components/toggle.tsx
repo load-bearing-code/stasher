@@ -19,11 +19,11 @@ export function Toggle({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
-        checked ? "bg-primary" : "bg-secondary"
+        checked ? "afterhours-gloss" : "bg-[var(--track)] shadow-track"
       } ${disabled ? "cursor-default" : "cursor-pointer"}`}
     >
       <span
-        className={`inline-block size-4 rounded-full bg-white shadow-sm transition-transform ${
+        className={`inline-block size-4 rounded-full bg-[var(--knob-hi)] shadow-knob transition-transform ${
           checked ? "translate-x-4" : "translate-x-0.5"
         }`}
       />

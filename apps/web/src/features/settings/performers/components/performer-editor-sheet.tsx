@@ -119,7 +119,7 @@ export function PerformerEditorSheet({
       <SheetContent
         side="right"
         initialFocus={nameRef}
-        backdropClassName="bg-black/60 backdrop-blur-md"
+        backdropClassName="bg-media-scrim backdrop-blur-md"
       >
         <SheetHeader className="px-6 py-5">
           <div className="relative flex w-full items-center">
@@ -172,7 +172,7 @@ export function PerformerEditorSheet({
             </div>
           </div>
           <div className="mt-2 flex flex-col gap-2 border-t border-border/60 pt-5">
-            <label htmlFor="performer-aliases" className="text-sm font-medium text-foreground">
+            <label htmlFor="performer-aliases" className="text-body font-medium text-foreground">
               Aliases
             </label>
             <Input
@@ -188,7 +188,7 @@ export function PerformerEditorSheet({
           {!isCreate && performer && open ? (
             <PerformerPlatformsSection key={performer.id} performerId={performer.id} />
           ) : (
-            <p className="border-t border-border/60 pt-5 text-sm text-muted-foreground">
+            <p className="border-t border-border/60 pt-5 text-body text-muted-foreground">
               Save the performer before linking platform accounts.
             </p>
           )}

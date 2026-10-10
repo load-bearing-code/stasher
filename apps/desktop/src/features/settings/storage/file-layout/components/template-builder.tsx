@@ -157,7 +157,7 @@ export function TemplateBuilder({
   return (
     <div ref={wrapRef} className="relative flex flex-col gap-1.5">
       {/* The trailing text segment is flex-1, so clicks on the empty area land there. */}
-      <div className="flex min-h-[30px] cursor-text flex-wrap items-center gap-x-0.5 gap-y-1 rounded-md border bg-black/30 px-2.5 py-1">
+      <div className="afterhours-well flex min-h-[30px] cursor-text flex-wrap items-center gap-x-0.5 gap-y-1 rounded-md px-2.75 py-1">
         <BracesIcon className="mr-1 size-3.5 shrink-0 text-muted-foreground" />
         {parts.map((part, seg) => {
           const token = matchToken(part);
@@ -174,8 +174,8 @@ export function TemplateBuilder({
                 key={`chip-${seg}`}
                 type="button"
                 onClick={() => setAc({ mode: "chip", seg, highlight: 0 })}
-                className={`inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-sm border bg-tint-soft py-0 pr-1 pl-1.5 text-[11px] font-medium text-tint-text ${
-                  active ? "border-tint-text" : "border-tint-border"
+                className={`inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-sm border bg-acc/12 py-0 pr-1 pl-1.5 text-[11px] font-medium text-acc ${
+                  active ? "border-acc" : "border-acc/40"
                 }`}
               >
                 {(def?.label ?? token.key) + (formatLabel ? ` · ${formatLabel}` : "")}
@@ -213,7 +213,7 @@ export function TemplateBuilder({
       </div>
 
       {acOpen && (
-        <div className="glass-thick absolute top-full right-0 left-0 z-20 max-h-80 overflow-auto rounded-lg p-1">
+        <div className="afterhours-menu absolute top-full right-0 left-0 z-20 max-h-80 overflow-auto rounded-lg p-1">
           {chipFormats.length > 0 && chipToken && (
             <>
               <div className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">Format</div>
@@ -231,13 +231,8 @@ export function TemplateBuilder({
                       setAc(null);
                     }}
                   >
-                    <CheckIcon
-                      className="size-3 text-tint-text"
-                      style={{ opacity: isActive ? 1 : 0 }}
-                    />
-                    <span
-                      className={`flex-1 text-xs font-medium ${isActive ? "text-tint-text" : ""}`}
-                    >
+                    <CheckIcon className="size-3 text-acc" style={{ opacity: isActive ? 1 : 0 }} />
+                    <span className={`flex-1 text-xs font-medium ${isActive ? "text-acc" : ""}`}>
                       {option.label}
                     </span>
                     <span className="whitespace-nowrap font-mono text-[11px] text-muted-foreground">
@@ -258,7 +253,7 @@ export function TemplateBuilder({
               <button
                 key={token.key}
                 type="button"
-                className={`flex w-full items-center gap-2.5 rounded-sm px-2 py-1 text-left ${highlighted ? "bg-primary text-white" : ""}`}
+                className={`flex w-full items-center gap-2.5 rounded-sm px-2 py-1 text-left ${highlighted ? "bg-acc/12 text-foreground shadow-active" : ""}`}
                 onMouseDown={(event) => {
                   event.preventDefault();
                   insertToken(token.key);
@@ -269,12 +264,12 @@ export function TemplateBuilder({
               >
                 <span className="w-20 flex-none text-xs font-medium">{token.label}</span>
                 <span
-                  className={`min-w-0 flex-1 truncate text-xs ${highlighted ? "text-white/75" : "text-muted-foreground"}`}
+                  className={`min-w-0 flex-1 truncate text-xs ${highlighted ? "text-foreground-secondary" : "text-muted-foreground"}`}
                 >
                   {token.description}
                 </span>
                 <span
-                  className={`whitespace-nowrap font-mono text-[11px] ${highlighted ? "text-white/75" : "text-muted-foreground"}`}
+                  className={`whitespace-nowrap font-mono text-[11px] ${highlighted ? "text-foreground-secondary" : "text-muted-foreground"}`}
                 >
                   {SAMPLE[token.key]}
                 </span>

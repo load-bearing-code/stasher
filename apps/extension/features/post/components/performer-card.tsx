@@ -38,7 +38,7 @@ export function PerformerCard({ profile, inStash }: { profile: SiteProfile; inSt
           <span
             className={
               inStash
-                ? "shrink-0 rounded-full border border-emerald-500/40 px-2.5 py-0.5 text-[11px] font-medium text-emerald-400"
+                ? "shrink-0 rounded-full border border-success/40 px-2.5 py-0.5 text-[11px] font-medium text-success"
                 : "shrink-0 rounded-full border border-border px-2.5 py-0.5 text-[11px] text-muted-foreground"
             }
           >

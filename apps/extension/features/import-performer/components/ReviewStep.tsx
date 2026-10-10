@@ -42,7 +42,7 @@ export function ReviewStep({
           >
             <ArrowLeftIcon />
           </Button>
-          <h2 className="text-sm font-medium">Review values</h2>
+          <h2 className="text-body font-medium">Review values</h2>
         </div>
         <StepDots step={2} />
       </div>

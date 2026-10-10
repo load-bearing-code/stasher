@@ -63,7 +63,7 @@ export function PerformersSection() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Filter performers"
-              className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+              className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-muted-foreground"
             />
           </label>
           <Button size="sm" onClick={openCreate}>
@@ -81,7 +81,7 @@ export function PerformersSection() {
             <PerformerCard key={performer.id} performer={performer} onOpen={openEditor} />
           ))}
           {performers.length > 0 && visiblePerformers.length === 0 ? (
-            <div className="col-span-full rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">
+            <div className="col-span-full rounded-xl border border-dashed border-border px-4 py-12 text-center text-body text-muted-foreground">
               No performers match “{query.trim()}”.
             </div>
           ) : null}

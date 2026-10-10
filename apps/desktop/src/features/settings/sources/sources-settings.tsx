@@ -103,7 +103,7 @@ export function SourcesSettings() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.035] p-3.5">
+      <div className="flex items-center gap-3 afterhours-glass rounded-lg p-3.5">
         <div className="flex size-[44px] shrink-0 items-center justify-center rounded-lg border bg-secondary text-muted-foreground">
           <PuzzleIcon className="size-5" />
         </div>
@@ -128,7 +128,7 @@ export function SourcesSettings() {
         title="Sites"
         description="Browser sessions and the performers linked to each supported site"
       >
-        <div className="flex flex-col divide-y divide-white/10 rounded-lg border border-white/10 bg-white/[0.035]">
+        <div className="flex flex-col divide-y divide-divider afterhours-glass rounded-lg">
           {sites.map((site) => {
             const enabled = !disabled.has(site.site);
             const source = statusesBySite.get(site.site);
@@ -145,7 +145,7 @@ export function SourcesSettings() {
                 : performerSummary;
             return (
               <div key={site.site} className="flex items-center gap-3 p-3.5">
-                <div className="flex size-[40px] shrink-0 items-center justify-center rounded-lg border bg-secondary text-sm font-medium text-muted-foreground">
+                <div className="flex size-[40px] shrink-0 items-center justify-center rounded-lg border bg-secondary text-body font-medium text-muted-foreground">
                   {site.label.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">

@@ -27,25 +27,25 @@ export function PerformerCard({ performer, onOpen }: PerformerCardProps) {
     <button
       type="button"
       onClick={() => onOpen(performer.id)}
-      className="flex min-h-80 w-full cursor-pointer flex-col items-center rounded-2xl border border-border bg-[#111013] px-5 pt-8 pb-6 text-center transition-colors hover:bg-muted/70"
+      className="afterhours-matte flex min-h-80 w-full cursor-pointer flex-col items-center rounded-2xl px-5 pt-8 pb-6 text-center transition-colors"
     >
       <div
         className={cn(
-          "size-28 shrink-0 rounded-full bg-linear-to-br shadow-inner shadow-white/10",
+          "size-28 shrink-0 rounded-full bg-linear-to-br shadow-highlight",
           avatarGradient(performer.id),
         )}
       />
       <span className="mt-5 max-w-full truncate text-base font-semibold text-foreground">
         {performer.name}
       </span>
-      <span className="mt-1 min-h-5 max-w-full truncate text-sm text-muted-foreground">
+      <span className="mt-1 min-h-5 max-w-full truncate text-body text-muted-foreground">
         {performer.disambiguation || "—"}
       </span>
       <div className="mt-4 flex max-w-full flex-wrap justify-center gap-1.5">
         {performer.aliases.map((alias) => (
           <span
             key={alias}
-            className="max-w-full truncate rounded-full border border-primary/40 bg-primary/15 px-2.5 py-0.5 text-xs text-primary"
+            className="max-w-full truncate rounded-full border border-acc/40 bg-acc/12 px-2.5 py-0.5 text-meta text-acc"
           >
             {alias}
           </span>

@@ -91,8 +91,8 @@ function ArtworkPicker({ kind, file, currentURL, disabled, onSelect }: ArtworkPi
           ) : (
             <Globe className="size-6 text-muted-foreground" />
           )}
-          <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-            <ImagePlus className="size-5 text-white" />
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-media-scrim opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+            <ImagePlus className="size-5 text-on-media" />
           </span>
         </Button>
       </>
@@ -102,7 +102,7 @@ function ArtworkPicker({ kind, file, currentURL, disabled, onSelect }: ArtworkPi
   return (
     <div className="flex min-h-20 items-center gap-4 rounded-xl border border-border bg-muted/30 px-4 py-3.5">
       <div className="min-w-0">
-        <p className="text-sm font-medium text-foreground">Wordmark</p>
+        <p className="text-body font-medium text-foreground">Wordmark</p>
         <p className="mt-0.5 text-xs text-muted-foreground">Shown in filters and on posts</p>
       </div>
       <div className="ml-auto flex min-w-0 items-center gap-3">
@@ -231,7 +231,7 @@ export function PlatformEditorSheet({
       <SheetContent
         side="right"
         initialFocus={nameRef}
-        backdropClassName="bg-black/60 backdrop-blur-md"
+        backdropClassName="bg-media-scrim backdrop-blur-md"
       >
         <SheetHeader className="px-6 py-5">
           <div className="relative flex w-full items-center justify-center">

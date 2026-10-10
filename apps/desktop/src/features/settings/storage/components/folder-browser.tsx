@@ -22,7 +22,7 @@ export function FolderBrowser({
   onCancel: () => void;
 }) {
   return (
-    <div className="col-start-2 flex flex-col gap-1 rounded-xl bg-black/30 p-2">
+    <div className="col-start-2 flex flex-col gap-1 rounded-xl bg-well shadow-well p-2">
       <div className="flex items-center gap-2 px-1 pb-1">
         <Button
           variant="ghost"

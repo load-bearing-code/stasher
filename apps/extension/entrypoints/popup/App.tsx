@@ -23,10 +23,10 @@ export function App() {
   }
 
   return (
-    <main className="glass-thick flex max-h-[600px] w-[400px] flex-col overflow-y-auto text-xs">
+    <main className="flex max-h-[600px] w-[400px] flex-col overflow-y-auto text-meta">
       <header className="flex items-center justify-between gap-2 px-4 pt-4 pb-1">
-        <div className="flex items-center gap-3 text-sm font-medium">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-tint-soft text-tint-text">
+        <div className="flex items-center gap-3 text-body font-medium">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-acc/12 text-acc">
             <RefreshCwIcon className="size-4" />
           </div>
           Stash Sync

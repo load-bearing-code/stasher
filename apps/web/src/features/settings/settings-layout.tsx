@@ -11,9 +11,9 @@ export function SettingsLayout() {
   }, [pathname]);
 
   return (
-    <div className="mx-auto flex max-w-[1040px] flex-wrap items-start gap-x-10 gap-y-6 px-[clamp(14px,3vw,32px)] py-4.5 pb-16">
-      <div className="sticky top-4.5 flex max-w-[220px] flex-1 basis-[180px] flex-col gap-3.5">
-        <h1 className="px-2.5 text-[26px] font-semibold tracking-[-0.03em]">Settings</h1>
+    <div className="mx-auto flex max-w-[1040px] flex-wrap items-start gap-x-10 gap-y-6 px-[clamp(14px,3vw,32px)] pt-10 pb-16">
+      <div className="sticky top-21 flex max-w-[220px] flex-1 basis-[180px] flex-col gap-3.5">
+        <h1 className="px-2.5 text-page-title">Settings</h1>
         <SettingsNav />
       </div>
 

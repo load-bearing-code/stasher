@@ -28,7 +28,7 @@ function SheetBackdrop({
     <Dialog.Backdrop
       data-slot="sheet-backdrop"
       className={cn(
-        "fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
+        "fixed inset-0 z-40 bg-media-scrim transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
         className
       )}
       {...props}
@@ -104,12 +104,12 @@ function SheetContent({
         data-slot="sheet-content"
         data-side={side}
         className={cn(
-          "glass fixed z-50 flex flex-col overflow-hidden shadow-2xl outline-none",
+          "afterhours-glass fixed z-50 flex flex-col overflow-hidden shadow-float outline-none",
           "transition-[transform,height,width] duration-300 ease-out",
           side === "bottom" &&
             "inset-x-0 bottom-0 mx-auto w-full max-w-[720px] rounded-t-xl data-[ending-style]:translate-y-full data-[starting-style]:translate-y-full",
           side === "right" &&
-            "inset-y-3 right-3 h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] max-w-[640px] rounded-2xl border border-border/60 transition-transform duration-300 ease-out data-[ending-style]:translate-x-[calc(100%+0.75rem)] data-[starting-style]:translate-x-[calc(100%+0.75rem)] max-sm:inset-0 max-sm:h-full max-sm:w-full max-sm:rounded-none max-sm:border-0 max-sm:data-[ending-style]:translate-x-full max-sm:data-[starting-style]:translate-x-full",
+            "inset-y-3 right-3 h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] max-w-[640px] rounded-2xl border border-border transition-transform duration-300 ease-out data-[ending-style]:translate-x-[calc(100%+0.75rem)] data-[starting-style]:translate-x-[calc(100%+0.75rem)] max-sm:inset-0 max-sm:h-full max-sm:w-full max-sm:rounded-none max-sm:border-0 max-sm:data-[ending-style]:translate-x-full max-sm:data-[starting-style]:translate-x-full",
           className
         )}
         {...props}
@@ -126,7 +126,7 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sheet-header"
       className={cn(
-        "flex items-start gap-2 border-b border-border/60 px-4 pb-5",
+        "flex items-start gap-2 border-b border-divider px-4 pb-5",
         className
       )}
       {...props}
@@ -139,7 +139,7 @@ function SheetTitle({ className, ...props }: Dialog.Title.Props) {
     <Dialog.Title
       data-slot="sheet-title"
       className={cn(
-        "font-heading text-base leading-snug font-medium",
+        "text-dialog-title",
         className
       )}
       {...props}
@@ -151,7 +151,7 @@ function SheetDescription({ className, ...props }: Dialog.Description.Props) {
   return (
     <Dialog.Description
       data-slot="sheet-description"
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-body text-muted-foreground", className)}
       {...props}
     />
   )
@@ -172,7 +172,7 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sheet-footer"
       className={cn(
-        "flex items-center gap-2 border-t border-border/60 px-4 py-3",
+        "flex items-center gap-2 border-t border-divider px-4 py-3",
         className
       )}
       {...props}

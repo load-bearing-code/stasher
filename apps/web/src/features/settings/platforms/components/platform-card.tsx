@@ -34,17 +34,17 @@ export function PlatformCard({ platform, selected, onOpen, onToggleSelect }: Pla
         type="button"
         onClick={() => onOpen(platform.id)}
         className={cn(
-          "flex w-full cursor-pointer flex-col items-center rounded-2xl border border-border bg-[#111013] px-5 pt-7 pb-6 text-center transition-colors hover:bg-muted/70",
-          selected && "border-primary",
+          "afterhours-matte flex w-full cursor-pointer flex-col items-center rounded-2xl px-5 pt-7 pb-6 text-center transition-colors",
+          selected && "shadow-active",
         )}
       >
-        <div className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-inner shadow-white/10">
+        <div className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-on-media shadow-highlight">
           {platform.iconUri ? (
             <img src={apiAssetURL(platform.iconUri)} alt="" className="size-full object-cover" />
           ) : (
             <div
               className={cn(
-                "flex size-full items-center justify-center bg-linear-to-br text-2xl font-semibold text-white",
+                "flex size-full items-center justify-center bg-linear-to-br text-2xl font-semibold text-on-media",
                 iconGradient(platform.id),
               )}
             >
@@ -63,7 +63,7 @@ export function PlatformCard({ platform, selected, onOpen, onToggleSelect }: Pla
             {platform.name}
           </span>
         )}
-        <span className="mt-1 max-w-full truncate text-sm text-muted-foreground">
+        <span className="mt-1 max-w-full truncate text-body text-muted-foreground">
           {platform.performerCount} {pluralize(platform.performerCount, "performer")}
         </span>
       </button>

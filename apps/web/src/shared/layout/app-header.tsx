@@ -1,7 +1,7 @@
 import { cn } from "@stasher/ui/lib/utils";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Search } from "lucide-react";
-import { useState } from "react";
+import { Search, Settings } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface NavItem {
   label: string;
@@ -9,20 +9,44 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { label: "Home", to: "/" },
+  { label: "Library", to: "/" },
   { label: "Feed", to: "/feed" },
 ];
+
+/** Afterhours marks the current item with an accent hairline ring, not a filled pill. */
+const navItem =
+  "flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.75 text-nav transition-colors";
+const navActive = "text-acc shadow-active";
+const navInactive = "text-foreground-secondary hover:text-foreground";
 
 export function AppHeader() {
   const [query, setQuery] = useState("");
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [scrolled, setScrolled] = useState(false);
+
+  // The header is transparent over the page ground and fades in a masked blur
+  // once content slides under it.
+  useEffect(() => {
+    const scroller = document.getElementById("app-scroll-container");
+    if (!scroller) return;
+    const onScroll = () => setScrolled(scroller.scrollTop > 0);
+    onScroll();
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    return () => scroller.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
-    <header className="z-10 flex h-16 shrink-0 items-center gap-5 bg-[rgba(8,7,10,0.86)] px-[clamp(14px,3vw,32px)] backdrop-blur-2xl backdrop-saturate-150">
-      <Link
-        to="/"
-        className="flex-none cursor-pointer text-[19px] font-semibold tracking-[-0.035em] text-foreground"
-      >
+    <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-5 bg-transparent px-[clamp(14px,3vw,32px)]">
+      <div
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute inset-x-0 top-0 -bottom-6 -z-10 backdrop-blur-[20px] transition-opacity duration-200 ease-out",
+          "[mask-image:linear-gradient(#000_55%,transparent)]",
+          scrolled ? "opacity-100" : "opacity-0",
+        )}
+      />
+
+      <Link to="/" className="flex-none cursor-pointer text-wordmark text-foreground">
         Stasher
       </Link>
 
@@ -33,12 +57,7 @@ export function AppHeader() {
             <Link
               key={item.to}
               to={item.to}
-              className={cn(
-                "flex cursor-pointer items-center gap-1.5 rounded-lg px-3.5 py-[7px] text-sm font-medium transition-colors",
-                active
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
+              className={cn(navItem, active ? navActive : navInactive)}
             >
               {item.label}
             </Link>
@@ -47,27 +66,28 @@ export function AppHeader() {
       </nav>
 
       <div className="flex min-w-0 flex-1 justify-center">
-        <label className="flex h-10 w-full max-w-[520px] items-center gap-2.5 rounded-full border border-[var(--glass-border)] bg-[var(--muted)] px-3.5 text-muted-foreground">
+        <label className="afterhours-well flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-3.5 text-muted-foreground">
           <Search className="size-[15px] flex-none" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search posts and performers"
-            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent text-caption text-foreground outline-none placeholder:text-muted-foreground"
           />
         </label>
       </div>
 
       <Link
         to="/settings"
+        title="Settings"
+        aria-label="Settings"
         className={cn(
-          "flex flex-none cursor-pointer items-center rounded-lg px-3.5 py-[7px] text-sm font-medium transition-colors",
-          pathname.startsWith("/settings")
-            ? "text-foreground"
-            : "text-muted-foreground hover:text-foreground",
+          navItem,
+          "flex-none",
+          pathname.startsWith("/settings") ? navActive : navInactive,
         )}
       >
-        Settings
+        <Settings className="size-[17px] flex-none" />
       </Link>
     </header>
   );

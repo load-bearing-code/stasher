@@ -171,6 +171,11 @@ export default defineBackground(() => {
   // Firefox MV2 exposes `browserAction`; `action` only exists in MV3.
   const action = browser.action ?? browser.browserAction;
 
+  // Afterhours' --status-success and --status-danger. The toolbar badge is browser
+  // chrome, not a document, so the colours can't come from the CSS tokens at runtime.
+  const BADGE_SUCCESS = "#6fcf97";
+  const BADGE_DANGER = "#f07a7a";
+
   async function setBadge(tabId: number, state: BadgeState) {
     try {
       await action.setBadgeText({
@@ -180,7 +185,7 @@ export default defineBackground(() => {
       if (state !== "none") {
         await action.setBadgeBackgroundColor({
           tabId,
-          color: state === "inStash" ? "#16a34a" : "#dc2626",
+          color: state === "inStash" ? BADGE_SUCCESS : BADGE_DANGER,
         });
       }
     } catch (error) {

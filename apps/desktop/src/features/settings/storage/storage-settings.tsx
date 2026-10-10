@@ -128,7 +128,7 @@ export function StorageSettings() {
   return (
     <div className="flex flex-col gap-6">
       <SettingsSection title="Media location" description="Where downloaded media is written">
-        <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-x-3 gap-y-2.5 rounded-lg border border-white/10 bg-white/[0.035] p-3.5">
+        <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-x-3 gap-y-2.5 afterhours-glass rounded-lg p-3.5">
           <Row label="Server" htmlFor="nfs-server">
             <IconInput
               id="nfs-server"
@@ -163,13 +163,13 @@ export function StorageSettings() {
                   <button
                     key={item.path}
                     type="button"
-                    className={`flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left font-mono text-xs ${selected ? "bg-primary/15" : "hover:bg-secondary"}`}
+                    className={`flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-mono text-xs transition-[color,box-shadow] duration-[160ms] ease-out ${selected ? "text-acc shadow-active" : "hover:bg-accent"}`}
                     onClick={() => setExportPath(item.path)}
                   >
                     <FolderIcon className="size-3.5 shrink-0 text-muted-foreground" />
                     <span className="min-w-0 flex-1 truncate">{item.path}</span>
                     {size && <span className="text-muted-foreground">{size}</span>}
-                    {selected && <CheckIcon className="size-3.5 shrink-0 text-primary" />}
+                    {selected && <CheckIcon className="size-3.5 shrink-0 text-acc" />}
                   </button>
                 );
               })}
@@ -218,7 +218,7 @@ export function StorageSettings() {
           )}
         </div>
 
-        <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-white/[0.035] p-3.5">
+        <div className="flex flex-col gap-3 afterhours-glass rounded-lg p-3.5">
           <div className="flex items-center gap-3">
             <div className="flex size-[34px] shrink-0 items-center justify-center rounded-lg border bg-secondary text-muted-foreground">
               <HardDriveIcon className="size-4" />

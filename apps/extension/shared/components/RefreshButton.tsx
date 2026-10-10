@@ -16,7 +16,7 @@ export function RefreshButton({
   return (
     <Button
       variant="outline"
-      className="h-7 rounded-full bg-secondary px-3 text-xs font-normal text-secondary-foreground"
+      className="afterhours-matte h-7 rounded-full px-3 text-button-sm font-normal text-secondary-foreground"
       disabled={refreshing}
       title={title}
       onClick={onClick}

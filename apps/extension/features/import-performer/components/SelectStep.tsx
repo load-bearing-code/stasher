@@ -66,7 +66,7 @@ export function SelectStep({
           <Button variant="ghost" size="icon-sm" aria-label="Back" onClick={onCancel}>
             <ArrowLeftIcon />
           </Button>
-          <h2 className="text-sm font-medium">Choose what to import</h2>
+          <h2 className="text-body font-medium">Choose what to import</h2>
         </div>
         <StepDots step={1} />
       </div>
@@ -80,7 +80,7 @@ export function SelectStep({
               disabled={!option.available || option.key === "profile"}
               onChange={(checked) => onSelectionChange(option.key, checked)}
             />
-            <span className="flex-1 text-sm">{option.label}</span>
+            <span className="flex-1 text-body">{option.label}</span>
             <span className="truncate text-muted-foreground">{option.summary}</span>
           </div>
         ))}

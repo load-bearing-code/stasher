@@ -30,7 +30,7 @@ function PlatformMark({ platform, size = "sm" }: PlatformMarkProps) {
   const sizeClass = size === "lg" ? "size-12 rounded-xl" : "size-9 rounded-lg";
   return (
     <div
-      className={`flex ${sizeClass} shrink-0 items-center justify-center overflow-hidden bg-white font-medium text-black/75`}
+      className={`flex ${sizeClass} shrink-0 items-center justify-center overflow-hidden bg-on-media font-medium text-page`}
     >
       {platform.iconUri ? (
         <img src={apiAssetURL(platform.iconUri)} alt="" className="size-full object-cover" />
@@ -82,9 +82,11 @@ function PlatformAccountCard({ account, performerId }: PlatformAccountCardProps)
       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3">
         <PlatformMark platform={account.platform} size="lg" />
         <div className="flex h-12 min-w-0 flex-col justify-evenly">
-          <p className="truncate text-sm font-semibold text-foreground">{account.platform.name}</p>
+          <p className="truncate text-body font-semibold text-foreground">
+            {account.platform.name}
+          </p>
           <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-            <span className="size-1.5 shrink-0 rounded-full bg-emerald-400" />
+            <span className="size-1.5 shrink-0 rounded-full bg-success" />
             {isShared
               ? `Shared with ${account.performers.length - 1} other ${account.performers.length === 2 ? "performer" : "performers"}`
               : account.platformUserId
@@ -239,10 +241,10 @@ export function PerformerPlatformsSection({ performerId }: PerformerPlatformsSec
       </h3>
       <div className="overflow-hidden rounded-2xl border border-border bg-muted/25">
         {!isPending && accounts.length === 0 ? (
-          <p className="px-5 pt-5 pb-5 text-sm text-muted-foreground">No accounts linked</p>
+          <p className="px-5 pt-5 pb-5 text-body text-muted-foreground">No accounts linked</p>
         ) : null}
         {isPending ? (
-          <p className="px-5 py-5 text-sm text-muted-foreground">Loading accounts...</p>
+          <p className="px-5 py-5 text-body text-muted-foreground">Loading accounts...</p>
         ) : null}
         {accountsError ? (
           <p role="alert" className="px-5 py-3 text-xs text-destructive">
@@ -262,7 +264,7 @@ export function PerformerPlatformsSection({ performerId }: PerformerPlatformsSec
                 onChange={(event) => setPlatformQuery(event.target.value)}
                 placeholder="Search platforms..."
                 aria-label="Search platforms"
-                className="h-9 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                className="h-9 min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-muted-foreground"
               />
               <Button
                 variant="ghost"
@@ -282,7 +284,7 @@ export function PerformerPlatformsSection({ performerId }: PerformerPlatformsSec
                   className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-muted"
                 >
                   <PlatformMark platform={platform} />
-                  <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                  <span className="min-w-0 flex-1 truncate text-body text-foreground">
                     {platform.name}
                   </span>
                   <span className="truncate font-mono text-xs text-muted-foreground">
@@ -291,7 +293,7 @@ export function PerformerPlatformsSection({ performerId }: PerformerPlatformsSec
                 </button>
               ))}
               {visiblePlatforms.length === 0 ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">
+                <p className="py-6 text-center text-body text-muted-foreground">
                   No matching platforms.
                 </p>
               ) : null}
@@ -311,7 +313,7 @@ export function PerformerPlatformsSection({ performerId }: PerformerPlatformsSec
                 <ArrowLeft />
               </Button>
               <PlatformMark platform={addingPlatform} />
-              <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+              <p className="min-w-0 flex-1 truncate text-body font-medium text-foreground">
                 Link {addingPlatform.name}
               </p>
               <Button
@@ -371,7 +373,7 @@ export function PerformerPlatformsSection({ performerId }: PerformerPlatformsSec
             <span className="flex size-9 items-center justify-center rounded-lg border border-dashed border-primary/40">
               <Plus className="size-4" />
             </span>
-            <span className="text-sm font-medium">Add account</span>
+            <span className="text-body font-medium">Add account</span>
           </button>
         ) : null}
       </div>

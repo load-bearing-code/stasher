@@ -53,7 +53,7 @@ export function StashSettings() {
 
   return (
     <SettingsSection title="Stash connection" description="The Stash instance media is catalogued in">
-      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-x-3 gap-y-2.5 rounded-lg border border-white/10 bg-white/[0.035] p-3.5">
+      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-x-3 gap-y-2.5 afterhours-glass rounded-lg p-3.5">
         <Row label="Stash URL" htmlFor="stash-url">
           <IconInput
             id="stash-url"

@@ -42,7 +42,7 @@ export function CandidateList({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm font-semibold">Could it be one of these?</p>
+      <p className="text-body font-semibold">Could it be one of these?</p>
       <Card variant="inset" className="gap-0 divide-y py-0">
         {candidates.map((candidate) => (
           <CandidateRow

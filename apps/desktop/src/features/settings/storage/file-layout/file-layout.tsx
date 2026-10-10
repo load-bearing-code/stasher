@@ -34,11 +34,11 @@ export function FileLayout() {
 
   return (
     <SettingsSection title="File layout" description="How downloaded files are named and foldered">
-      <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-white/[0.035] p-3.5">
+      <div className="flex flex-col gap-3 afterhours-glass rounded-lg p-3.5">
         <TemplateBuilder value={template} onChange={setTemplate} />
-        <div className="flex flex-col gap-0.5 rounded-md bg-black/20 px-2.5 py-2">
-          <span className="text-[11px] text-muted-foreground">Preview</span>
-          <span className="break-all font-mono text-[11px] leading-relaxed text-foreground">
+        <div className="flex flex-col gap-0.5 rounded-md bg-well shadow-well px-2.75 py-2">
+          <span className="section-label">Preview</span>
+          <span className="break-all font-mono text-mono-badge leading-relaxed text-foreground">
             {renderTemplate(template)}
           </span>
         </div>
