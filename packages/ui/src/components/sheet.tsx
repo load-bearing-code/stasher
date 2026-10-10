@@ -3,8 +3,8 @@ import { Dialog } from "@base-ui/react/dialog"
 import { cn } from "cn"
 
 /**
- * A bottom-anchored sheet built on Base UI's Dialog. The shell is
- * intentionally generic: it owns the backdrop, the slide-up surface, and
+ * An anchored sheet built on Base UI's Dialog. The shell is intentionally
+ * generic: it owns the backdrop, the sliding surface, and
  * the standard header/footer slots, but leaves content height, detents,
  * and keyboard shortcuts to the consumer.
  */
@@ -75,10 +75,14 @@ interface SheetContentProps
   extends Omit<Dialog.Popup.Props, "className" | "children"> {
   className?: string
   children?: React.ReactNode
+  /** Edge that anchors the sheet. @default "bottom" */
+  side?: "bottom" | "right"
   /** Render the grab handle. @default true */
   showHandle?: boolean
   /** Render the dimming backdrop behind the sheet. @default true */
   showBackdrop?: boolean
+  /** Additional classes for the dimming backdrop. */
+  backdropClassName?: string
   /** Called when the handle is clicked, e.g. to cycle detents. */
   onHandleClick?: () => void
 }
@@ -86,24 +90,31 @@ interface SheetContentProps
 function SheetContent({
   className,
   children,
+  side = "bottom",
   showHandle = true,
   showBackdrop = true,
+  backdropClassName,
   onHandleClick,
   ...props
 }: SheetContentProps) {
   return (
     <Dialog.Portal>
-      {showBackdrop ? <SheetBackdrop /> : null}
+      {showBackdrop ? <SheetBackdrop className={backdropClassName} /> : null}
       <Dialog.Popup
         data-slot="sheet-content"
+        data-side={side}
         className={cn(
-          "glass fixed inset-x-0 bottom-0 z-50 mx-auto flex w-full max-w-[720px] flex-col overflow-hidden rounded-t-xl shadow-2xl outline-none",
-          "transition-[transform,height] duration-300 ease-out data-[ending-style]:translate-y-full data-[starting-style]:translate-y-full",
+          "glass fixed z-50 flex flex-col overflow-hidden shadow-2xl outline-none",
+          "transition-[transform,height,width] duration-300 ease-out",
+          side === "bottom" &&
+            "inset-x-0 bottom-0 mx-auto w-full max-w-[720px] rounded-t-xl data-[ending-style]:translate-y-full data-[starting-style]:translate-y-full",
+          side === "right" &&
+            "inset-y-3 right-3 h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] max-w-[640px] rounded-2xl border border-border/60 transition-transform duration-300 ease-out data-[ending-style]:translate-x-[calc(100%+0.75rem)] data-[starting-style]:translate-x-[calc(100%+0.75rem)] max-sm:inset-0 max-sm:h-full max-sm:w-full max-sm:rounded-none max-sm:border-0 max-sm:data-[ending-style]:translate-x-full max-sm:data-[starting-style]:translate-x-full",
           className
         )}
         {...props}
       >
-        {showHandle ? <SheetHandle onClick={onHandleClick} /> : null}
+        {showHandle && side === "bottom" ? <SheetHandle onClick={onHandleClick} /> : null}
         {children}
       </Dialog.Popup>
     </Dialog.Portal>

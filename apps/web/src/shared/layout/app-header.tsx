@@ -1,6 +1,6 @@
-import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@stasher/ui/lib/utils";
-import { Search, Settings } from "lucide-react";
+import { Link, useRouterState } from "@tanstack/react-router";
+import { Search } from "lucide-react";
 import { useState } from "react";
 
 interface NavItem {
@@ -18,7 +18,7 @@ export function AppHeader() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center gap-5 bg-[rgba(8,7,10,0.86)] px-[clamp(14px,3vw,32px)] backdrop-blur-2xl backdrop-saturate-150">
+    <header className="z-10 flex h-16 shrink-0 items-center gap-5 bg-[rgba(8,7,10,0.86)] px-[clamp(14px,3vw,32px)] backdrop-blur-2xl backdrop-saturate-150">
       <Link
         to="/"
         className="flex-none cursor-pointer text-[19px] font-semibold tracking-[-0.035em] text-foreground"
@@ -60,15 +60,14 @@ export function AppHeader() {
 
       <Link
         to="/settings"
-        title="Settings"
         className={cn(
-          "flex flex-none cursor-pointer items-center transition-colors",
-          pathname === "/settings"
+          "flex flex-none cursor-pointer items-center rounded-lg px-3.5 py-[7px] text-sm font-medium transition-colors",
+          pathname.startsWith("/settings")
             ? "text-foreground"
             : "text-muted-foreground hover:text-foreground",
         )}
       >
-        <Settings className="size-[18px]" />
+        Settings
       </Link>
     </header>
   );

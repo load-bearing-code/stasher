@@ -1,6 +1,6 @@
 import { cn } from "@stasher/ui/lib/utils";
 import { Link, useLocation } from "@tanstack/react-router";
-import { Archive, Globe, Tag } from "lucide-react";
+import { Archive, Globe, Tag, Users } from "lucide-react";
 import { useServerMetadata } from "@/features/settings/library/library-api";
 
 const NAV_ITEMS = [
@@ -10,6 +10,12 @@ const NAV_ITEMS = [
     label: "Platforms",
     icon: Globe,
     countKey: "platforms",
+  },
+  {
+    to: "/settings/performers",
+    label: "Performers",
+    icon: Users,
+    countKey: "performers",
   },
   { to: "/settings/tags", label: "Tags", icon: Tag, countKey: "tags" },
 ] as const;
