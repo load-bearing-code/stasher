@@ -1,13 +1,13 @@
 import { Button } from "@stasher/ui/components/button";
 import { Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { PlatformCard } from "@/features/settings/platforms/components/platform-card";
 import { PlatformEditorSheet } from "@/features/settings/platforms/components/platform-editor-sheet";
-import { PlatformRow } from "@/features/settings/platforms/components/platform-row";
 import { SelectCheckbox } from "@/features/settings/platforms/components/select-checkbox";
 import {
+  type Platform,
   useDeletePlatform,
   usePlatforms,
-  type Platform,
 } from "@/features/settings/platforms/platforms-api";
 import { pluralize } from "@/shared/pluralize";
 
@@ -50,9 +50,9 @@ export function PlatformsSection() {
   }
 
   function deleteSelected() {
-    Promise.all(
-      [...selected].map((id) => deletePlatform.mutateAsync(id)),
-    ).then(() => setSelected(new Set()));
+    Promise.all([...selected].map((id) => deletePlatform.mutateAsync(id))).then(() =>
+      setSelected(new Set()),
+    );
   }
 
   function openEditor(id: string) {
@@ -83,9 +83,7 @@ export function PlatformsSection() {
             <SelectCheckbox
               state={selectAllState}
               aria-label={
-                selectAllState === "checked"
-                  ? "Deselect all platforms"
-                  : "Select all platforms"
+                selectAllState === "checked" ? "Deselect all platforms" : "Select all platforms"
               }
               onClick={toggleSelectAll}
             />
@@ -107,11 +105,7 @@ export function PlatformsSection() {
                 <Trash2 data-icon="inline-start" />
                 Delete
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelected(new Set())}
-              >
+              <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
                 Clear
               </Button>
             </div>
@@ -126,13 +120,11 @@ export function PlatformsSection() {
       </div>
 
       {isPending ? (
-        <div className="px-1 py-6 text-[13px] text-muted-foreground">
-          Loading platforms…
-        </div>
+        <div className="px-1 py-6 text-[13px] text-muted-foreground">Loading platforms…</div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border">
+        <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(210px,1fr))]">
           {platforms.map((platform) => (
-            <PlatformRow
+            <PlatformCard
               key={platform.id}
               platform={platform}
               selected={selected.has(platform.id)}

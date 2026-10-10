@@ -5,13 +5,10 @@ interface SelectCheckboxProps {
   state: "checked" | "unchecked" | "indeterminate";
   "aria-label": string;
   onClick: () => void;
+  className?: string;
 }
 
-export function SelectCheckbox({
-  state,
-  onClick,
-  ...props
-}: SelectCheckboxProps) {
+export function SelectCheckbox({ state, onClick, className, ...props }: SelectCheckboxProps) {
   return (
     <button
       type="button"
@@ -26,6 +23,7 @@ export function SelectCheckbox({
         state !== "unchecked"
           ? "border-primary bg-primary text-primary-foreground"
           : "border-border bg-transparent text-transparent hover:border-foreground/40",
+        className,
       )}
     >
       {state === "checked" ? (

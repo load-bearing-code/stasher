@@ -228,8 +228,12 @@ export function PlatformEditorSheet({
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent initialFocus={nameRef}>
-        <SheetHeader className="flex-col gap-1.5">
+      <SheetContent
+        side="right"
+        initialFocus={nameRef}
+        backdropClassName="bg-black/60 backdrop-blur-md"
+      >
+        <SheetHeader className="px-6 py-5">
           <div className="relative flex w-full items-center justify-center">
             <SheetTitle>{isCreate ? "New platform" : "Edit platform"}</SheetTitle>
             <SheetClose
@@ -247,7 +251,7 @@ export function PlatformEditorSheet({
           </div>
         </SheetHeader>
 
-        <SheetBody className="flex flex-col gap-3 py-4">
+        <SheetBody className="flex flex-col gap-3 px-6 py-6">
           <div className="flex items-center gap-2">
             <ArtworkPicker
               kind="icon"
@@ -286,7 +290,14 @@ export function PlatformEditorSheet({
             <p className="text-xs text-destructive">{mutationError.message}</p>
           ) : null}
         </SheetBody>
-        <SheetFooter className="justify-end">
+        <SheetFooter className="justify-end px-6 py-4">
+          <SheetClose
+            render={
+              <Button variant="ghost" disabled={isPending}>
+                Close
+              </Button>
+            }
+          />
           <Button disabled={!name || !!match || !isDirty || isPending} onClick={save}>
             {isPending ? "Saving..." : "Save"}
           </Button>
